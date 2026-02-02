@@ -1,0 +1,400 @@
+/* ═══════════════════════════════════════════════════════════════
+   FACULTY MARKS - PROFESSIONAL SAAS DESIGN
+   Clean, Modern, Corporate Aesthetic (White/Gray/Purple)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─────── Container & Layout ─────── */
+.faculty-marks-container {
+    position: relative;
+    min-height: 100vh;
+    padding: 2.5rem;
+    background-color: #f8fafc;
+    /* Slate 50 */
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #0f172a;
+    /* Slate 900 */
+}
+
+/* Hide old mesh background */
+.nexus-mesh-bg {
+    display: none;
+}
+
+/* ─────── Header Section ─────── */
+.f-view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    /* Slate 200 */
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.f-view-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    /* Slate 800 */
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.f-view-header h2 span {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.nexus-subtitle {
+    display: none;
+}
+
+/* ─────── Buttons ─────── */
+.f-node-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    min-width: max-content;
+}
+
+.f-node-btn.primary {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.f-node-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+}
+
+.f-node-btn.success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.f-node-btn.success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.f-node-btn.secondary {
+    background: white;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+}
+
+.f-node-btn.secondary:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+    transform: translateY(-1px);
+}
+
+/* ─────── Utility Bar ─────── */
+.subject-info-bar,
+.section-filter-bar {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.subject-info-bar strong {
+    color: #4f46e5;
+}
+
+.section-badge {
+    background: #eef2ff;
+    color: #4f46e5;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.student-count {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+/* Filter Bar */
+.filter-label {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.section-buttons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.section-btn {
+    background: white;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+    padding: 0.6rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.section-btn:hover {
+    border-color: #6366f1;
+    background-color: #f8fafc;
+    color: #4f46e5;
+    transform: translateY(-1px);
+}
+
+.section-btn.active {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* ─────── Data Table ─────── */
+.marks-table-wrapper {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    height: 650px;
+    overflow: auto;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+    position: relative;
+}
+
+/* Custom Nexus Scrollbar */
+.marks-table-wrapper::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.marks-table-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.marks-table-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.marks-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.comprehensive-marks-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.comprehensive-marks-table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #f1f5f9;
+}
+
+/* Sticky Columns */
+.sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 30;
+    background: white !important;
+    border-right: 2px solid #e2e8f0 !important;
+    min-width: 80px;
+    width: 80px;
+}
+
+.sticky-col-2 {
+    position: sticky;
+    left: 80px;
+    z-index: 30;
+    background: white !important;
+    border-right: 2px solid #e2e8f0 !important;
+    min-width: 180px;
+}
+
+.comprehensive-marks-table thead tr:first-child th.sticky-col,
+.comprehensive-marks-table thead tr:first-child th.sticky-col-2 {
+    z-index: 40;
+}
+
+.comprehensive-marks-table tbody td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.comprehensive-marks-table tbody tr:hover td {
+    background-color: #f8fafc;
+}
+
+.student-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+    color: #1e293b;
+    text-align: left;
+}
+
+/* Inputs */
+.mark-input {
+    width: 60px;
+    padding: 0.4rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.mark-input:focus {
+    border-color: #4f46e5;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+/* Headers Colors */
+.cla-header {
+    background-color: #eff6ff !important;
+    color: #1e40af !important;
+}
+
+.module1-header {
+    background-color: #f5f3ff !important;
+    color: #5b21b6 !important;
+}
+
+.module2-header {
+    background-color: #fdf2f8 !important;
+    color: #9d174d !important;
+}
+
+.cla-cell {
+    background-color: rgba(239, 246, 255, 0.5);
+}
+
+.module1-cell {
+    background-color: rgba(245, 243, 255, 0.5);
+}
+
+.module2-cell {
+    background-color: rgba(253, 242, 248, 0.5);
+}
+
+/* Badges */
+.percentage-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.percentage-badge.high {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.percentage-badge.medium {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.percentage-badge.low {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Footer */
+.marks-info-footer {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.loading-state p {
+    color: #64748b;
+    margin-top: 1rem;
+}
+
+.spinner {
+    border: 4px solid #e2e8f0;
+    border-top-color: #4f46e5;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 1024px) {
+    .faculty-marks-container {
+        padding: 1rem;
+    }
+
+    .f-view-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}

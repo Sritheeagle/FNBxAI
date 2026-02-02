@@ -1,0 +1,356 @@
+/* ==========================================================================
+   STUDENT SCHEDULE (SENTINEL THEME)
+   Theme: Friendly Notebook Premium
+   ========================================================================== */
+
+.chronos-protocol-container {
+    padding: 2.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* HEADER */
+.chronos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid var(--v-border);
+    padding-bottom: 1.5rem;
+}
+
+.header-left h1 {
+    font-size: 3rem;
+    font-weight: 950;
+    color: var(--v-text-main);
+    margin: 0;
+    line-height: 1;
+    letter-spacing: -2px;
+}
+
+.header-left .highlight {
+    color: var(--v-primary);
+}
+
+.protocol-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--v-primary);
+    font-weight: 900;
+    letter-spacing: 2px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.chronos-meta {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.meta-item .lab {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--v-text-muted);
+    letter-spacing: 1px;
+}
+
+.meta-item .val {
+    font-size: 1rem;
+    font-weight: 900;
+    color: var(--v-text-main);
+}
+
+.val.pulse-green {
+    color: var(--v-accent);
+}
+
+/* NAV */
+.nexus-glass-pills {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.nexus-pill {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--v-border);
+    background: white;
+    color: var(--v-text-dim);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: 0.2s;
+}
+
+.nexus-pill:hover {
+    border-color: var(--v-primary);
+    color: var(--v-primary);
+    transform: translateY(-2px);
+}
+
+.nexus-pill.active {
+    background: var(--v-primary);
+    color: white;
+    border-color: var(--v-primary);
+    box-shadow: var(--v-shadow-lg);
+}
+
+.mb-10 {
+    margin-bottom: 2.5rem;
+}
+
+/* DAY NAV */
+.chronos-day-nav {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+    scrollbar-width: none;
+}
+
+.chronos-day-nav::-webkit-scrollbar {
+    display: none;
+}
+
+.chronos-day-btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.75rem;
+    background: var(--v-surface);
+    border: 1px solid var(--v-border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.chronos-day-btn:hover {
+    border-color: var(--v-primary-light);
+    transform: translateY(-2px);
+}
+
+.chronos-day-btn.active {
+    background: var(--v-primary);
+    border-color: var(--v-primary);
+    color: white;
+}
+
+.chronos-day-btn .day-name {
+    font-weight: 800;
+    font-size: 0.8rem;
+    color: var(--v-text-dim);
+}
+
+.chronos-day-btn.active .day-name {
+    color: white;
+}
+
+.today-badge {
+    margin-top: 4px;
+    background: var(--v-accent);
+    color: white;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 800;
+}
+
+/* TIMELINE */
+.chronos-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.chronos-event-card {
+    display: flex;
+    gap: 1.5rem;
+    background: white;
+    border: 1px solid var(--v-border);
+    padding: 1.5rem;
+    border-radius: 20px;
+    transition: 0.3s;
+}
+
+.chronos-event-card:hover {
+    transform: translateX(5px);
+    box-shadow: var(--v-shadow);
+    border-color: var(--v-primary-light);
+}
+
+.event-time {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100px;
+    flex-shrink: 0;
+}
+
+.time-val {
+    font-weight: 900;
+    color: var(--v-text-main);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.time-line {
+    flex: 1;
+    width: 2px;
+    background: var(--v-border);
+    margin-top: 0.5rem;
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.time-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--v-border);
+    position: absolute;
+    top: 0;
+}
+
+.time-dot.glowing {
+    background: var(--v-accent);
+    box-shadow: 0 0 10px var(--v-accent);
+    width: 20px;
+    height: 20px;
+    left: -9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 10px;
+}
+
+.time-dot.completed {
+    background: var(--v-primary);
+    color: white;
+    width: 20px;
+    height: 20px;
+    left: -9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+}
+
+/* CONTENT */
+.event-content {
+    flex: 1;
+}
+
+.event-header {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.event-tag {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    background: var(--v-bg);
+    color: var(--v-text-muted);
+    text-transform: uppercase;
+}
+
+.event-tag.live {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.event-tag.done {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.event-title {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: var(--v-text-main);
+    margin: 0 0 1rem 0;
+}
+
+.event-footer {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--v-text-dim);
+}
+
+.ef-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.event-action {
+    display: flex;
+    align-items: center;
+}
+
+.nexus-context-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--v-bg);
+    border: none;
+    color: var(--v-text-muted);
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nexus-context-btn:hover {
+    background: var(--v-primary);
+    color: white;
+}
+
+/* EMPTY */
+.chronos-empty-state {
+    text-align: center;
+    padding: 4rem;
+    background: var(--v-bg);
+    border-radius: 20px;
+    border: 2px dashed var(--v-border);
+}
+
+.empty-icon {
+    font-size: 3rem;
+    color: var(--v-border);
+    margin-bottom: 1rem;
+}
+
+.re-sync-btn {
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: white;
+    border: 1px solid var(--v-border);
+    border-radius: 10px;
+    font-weight: 800;
+    color: var(--v-primary);
+    cursor: pointer;
+}

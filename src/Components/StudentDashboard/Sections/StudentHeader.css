@@ -1,0 +1,93 @@
+/* ==========================================================================
+   STUDENT HEADER (SENTINEL THEME)
+   Theme: Friendly Notebook Premium
+   ========================================================================== */
+
+.nexus-glass-header {
+    height: 90px;
+    padding: 0 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--v-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    transition: all 0.3s ease;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.breadcrumb-box {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
+.bc-main {
+    color: var(--v-text-muted);
+    letter-spacing: 0.05em;
+}
+
+.bc-sep {
+    font-size: 0.7rem;
+    color: var(--v-text-muted);
+    opacity: 0.5;
+}
+
+.bc-active {
+    color: var(--v-primary-light);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.header-time-box {
+    text-align: right;
+    padding-right: 1rem;
+}
+
+.time-val {
+    display: block;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--v-primary-light);
+    letter-spacing: 0.05em;
+    font-family: 'Outfit', sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+.date-val {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--v-text-dim);
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+    .nexus-glass-header {
+        padding: 0 1.5rem;
+        height: 70px;
+    }
+
+    .bc-main,
+    .bc-sep {
+        display: none;
+    }
+
+    .time-val {
+        font-size: 1rem;
+    }
+}

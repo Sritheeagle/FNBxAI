@@ -1,0 +1,248 @@
+/* Faculty Home Bento System */
+
+.faculty-bento-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: minmax(160px, auto);
+    gap: 1.5rem;
+    padding-bottom: 3rem;
+}
+
+.f-bento-card {
+    background: white;
+    border-radius: 32px;
+    padding: 2rem;
+    border: 1px solid #f1f5f9;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.f-bento-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
+    border-color: #e2e8f0;
+}
+
+/* Hero Variant */
+.f-bento-hero {
+    grid-column: span 2;
+    grid-row: span 2;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: white;
+    justify-content: center;
+    padding: 3.5rem;
+}
+
+.hero-faculty-greeting h2 {
+    font-size: 2.5rem;
+    font-weight: 950;
+    margin: 0;
+    letter-spacing: -2px;
+}
+
+.hero-faculty-greeting h2 span {
+    background: linear-gradient(to right, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero-faculty-greeting p {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    margin: 1.5rem 0 2.5rem;
+    line-height: 1.6;
+    font-weight: 600;
+}
+
+.hero-quick-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.f-quick-btn {
+    padding: 0.9rem 1.8rem;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 950;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.f-quick-btn.primary {
+    background: #6366f1;
+    color: white;
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+}
+
+.f-quick-btn.outline {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.f-quick-btn.primary:hover {
+    background: #4f46e5;
+    transform: translateY(-2px);
+}
+
+/* Stats Mini Variants */
+.f-bento-stat {
+    grid-row: span 1;
+    justify-content: space-between;
+}
+
+.stat-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-val {
+    font-size: 2rem;
+    font-weight: 950;
+    color: #0f172a;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    font-weight: 850;
+    color: #64748b;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Wide Cards */
+.f-bento-wide {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+
+.card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.card-header-row h3 {
+    font-size: 1.25rem;
+    font-weight: 950;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    letter-spacing: -0.5px;
+}
+
+.view-all-btn {
+    font-size: 0.75rem;
+    font-weight: 950;
+    color: #6366f1;
+    background: #f5f3ff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* Activity Feed */
+.f-mini-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.f-feed-node {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    background: #f8fafc;
+    border-radius: 20px;
+    border: 1px solid #f1f5f9;
+    transition: all 0.2s;
+}
+
+.f-feed-node:hover {
+    background: white;
+    border-color: #6366f1;
+    transform: translateX(5px);
+}
+
+.node-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: #6366f1;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+}
+
+.node-main-info {
+    flex: 1;
+}
+
+.node-title {
+    font-size: 0.95rem;
+    font-weight: 850;
+    color: #0f172a;
+    margin-bottom: 0.2rem;
+}
+
+.node-meta {
+    font-size: 0.75rem;
+    font-weight: 750;
+    color: #94a3b8;
+}
+
+/* Animations */
+.animate-bento {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: bentoEntry 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes bentoEntry {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsiveness */
+@media (max-width: 1200px) {
+    .faculty-bento-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .faculty-bento-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .f-bento-card {
+        grid-column: span 1 !important;
+    }
+}

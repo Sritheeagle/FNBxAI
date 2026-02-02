@@ -1,0 +1,342 @@
+/* ==========================================================================
+   PREMIUM STUDENT RESULTS (NEXUS THEME)
+   ========================================================================== */
+
+.premium-results-viewport {
+    padding: 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.results-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 3rem;
+    margin-bottom: 4rem;
+}
+
+.hero-text h1 {
+    font-size: 3.5rem;
+    font-weight: 950;
+    letter-spacing: -3px;
+    margin: 0.5rem 0;
+    color: var(--v-text-main);
+}
+
+.hero-text h1 span {
+    color: var(--v-primary);
+}
+
+.nexus-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 950;
+    color: var(--v-primary);
+    letter-spacing: 2px;
+}
+
+/* --- SUMMARY BENTO --- */
+.overall-summary-bento {
+    display: flex;
+    background: var(--v-surface);
+    border: 1px solid var(--v-border);
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: var(--v-shadow-xl);
+}
+
+.grade-display {
+    padding: 2.5rem;
+    background: rgba(0, 0, 0, 0.02);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    border-right: 1px solid var(--v-border);
+}
+
+.g-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px -5px var(--accent);
+}
+
+.g-val {
+    font-size: 2rem;
+    font-weight: 950;
+    color: var(--v-text-main);
+}
+
+.g-txt label {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 950;
+    color: var(--v-text-muted);
+}
+
+.g-txt span {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: var(--v-text-main);
+}
+
+.metrics-row {
+    padding: 2.5rem;
+    display: flex;
+    gap: 3rem;
+}
+
+.m-block label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 950;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+
+.m-block span {
+    font-size: 1.75rem;
+    font-weight: 950;
+    color: var(--v-text-main);
+}
+
+/* --- SUBJECTS GRID --- */
+.results-subjects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+    gap: 2rem;
+}
+
+.performance-divcard {
+    background: var(--v-surface);
+    border-radius: 28px;
+    border: 1px solid var(--v-border);
+    padding: 2.5rem;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.performance-divcard:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 40px 80px -20px rgba(99, 102, 241, 0.15);
+    border-color: var(--v-primary-light);
+}
+
+.card-header-v4 {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2.5rem;
+}
+
+.sub-branding {
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+}
+
+.sub-icon {
+    width: 50px;
+    height: 50px;
+    background: var(--v-bg);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: var(--v-primary);
+}
+
+.sub-branding h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 950;
+    letter-spacing: -0.5px;
+}
+
+.sub-code-tag {
+    font-size: 0.7rem;
+    font-weight: 900;
+    color: var(--v-primary);
+    letter-spacing: 1px;
+}
+
+.card-grade {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 950;
+    font-size: 1.1rem;
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+}
+
+.marker-section {
+    margin-bottom: 2rem;
+}
+
+.marker-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 950;
+    color: var(--v-text-muted);
+    margin-bottom: 1.25rem;
+    text-transform: uppercase;
+}
+
+.marker-pills {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.75rem;
+}
+
+.marker-pill {
+    padding: 0.75rem 0.5rem;
+    background: var(--v-bg);
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid transparent;
+}
+
+.marker-pill.high {
+    background: white;
+    border-color: rgba(99, 102, 241, 0.15);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+}
+
+.marker-pill label {
+    display: block;
+    font-size: 0.55rem;
+    font-weight: 900;
+    color: #94a3b8;
+}
+
+.marker-pill span {
+    font-size: 1rem;
+    font-weight: 950;
+    color: var(--v-text-main);
+}
+
+.modules-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.marker-targets {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.target-node {
+    padding: 0.75rem;
+    background: var(--v-bg);
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.t-label {
+    font-size: 0.65rem;
+    font-weight: 900;
+    color: #94a3b8;
+}
+
+.t-val {
+    font-size: 0.9rem;
+    font-weight: 950;
+    color: var(--v-text-main);
+}
+
+.card-footer-v4 {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--v-border);
+    margin-top: 1rem;
+}
+
+.f-metric label {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 950;
+    color: #94a3b8;
+}
+
+.f-metric span {
+    font-size: 1.25rem;
+    font-weight: 950;
+    color: var(--v-text-main);
+}
+
+.f-metric span.pass {
+    color: #10b981;
+}
+
+.f-metric span.fail {
+    color: #ef4444;
+}
+
+/* --- LOADING --- */
+.results-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    gap: 1.5rem;
+    color: var(--v-text-muted);
+}
+
+.neural-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(99, 102, 241, 0.1);
+    border-top-color: var(--v-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 800px) {
+    .results-hero {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .overall-summary-bento {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .grade-display {
+        border-right: none;
+        border-bottom: 1px solid var(--v-border);
+    }
+
+    .results-subjects-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modules-split {
+        grid-template-columns: 1fr;
+    }
+}

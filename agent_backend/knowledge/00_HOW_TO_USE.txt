@@ -1,0 +1,11 @@
+[HOW TO ADD NEW KNOWLEDGE]
+1. Create a new text file in this folder (e.g., "new_courses.txt").
+2. Paste any information you want the agent to know into that file.
+3. Save it.
+4. That's it! The agent will automatically read it the next time someone asks a question.
+
+[TIPS]
+- You can add as many files as you want.
+- You can use .txt or .md files.
+- You can paste FAQs, event schedules, contact lists, or anything else.
+- No need to restart the server.

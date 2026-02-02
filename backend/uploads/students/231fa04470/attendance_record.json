@@ -1,0 +1,15 @@
+[
+  {
+    "_id": "697f87aae771736321212cb4",
+    "date": "2026-02-01",
+    "studentId": "231fa04470",
+    "subject": "Computer Networks",
+    "__v": 0,
+    "createdAt": "2026-02-01T17:04:40.815Z",
+    "period": 1,
+    "recordedBy": "srikanthsathya ",
+    "section": "13",
+    "status": "Present",
+    "year": "3"
+  }
+]

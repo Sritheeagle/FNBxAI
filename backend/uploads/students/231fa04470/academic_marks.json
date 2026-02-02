@@ -1,0 +1,13 @@
+[
+  {
+    "_id": "697f970de7717363212135db",
+    "studentId": "231fa04470",
+    "subject": "Software Engineering",
+    "examType": "cla1",
+    "__v": 0,
+    "academicYear": "3",
+    "createdAt": "2026-02-01T18:10:19.158Z",
+    "marksObtained": 10,
+    "maxMarks": 20
+  }
+]

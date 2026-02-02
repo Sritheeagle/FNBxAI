@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+motor
+pymongo
+passlib
+python-jose
+bcrypt
+requests
+langchain
+langchain-community
+ollama
+openai
+langchain-openai
