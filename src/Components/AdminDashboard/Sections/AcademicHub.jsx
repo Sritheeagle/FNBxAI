@@ -33,6 +33,19 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
 
     // Management View State
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedYearFilter, setSelectedYearFilter] = useState('All');
+    const [selectedSemFilter, setSelectedSemFilter] = useState('All');
+
+    // Debug: Log courses changes to track deletions
+    React.useEffect(() => {
+        console.log('[AcademicHub] Courses updated:', {
+            total: courses.length,
+            active: courses.filter(c => !c.isHidden && c.status !== 'Inactive').length,
+            hidden: courses.filter(c => c.isHidden).length,
+            inactive: courses.filter(c => c.status === 'Inactive').length,
+            list: courses.map(c => ({ name: c.name, code: c.code, isHidden: c.isHidden, status: c.status }))
+        });
+    }, [courses]);
 
     const alphaSections = Array.from({ length: 16 }, (_, i) => String.fromCharCode(65 + i)); // A-P
     const numSections = Array.from({ length: 20 }, (_, i) => String(i + 1)); // 1-20
@@ -45,29 +58,41 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
         exit: { opacity: 0, scale: 0.98, transition: { duration: 0.2 } }
     };
 
+    // Branch-aware filtering with regex support
+    const matchesBranch = (courseBranch, filterBranch) => {
+        if (!courseBranch || filterBranch === 'All') return true;
+        const branches = String(courseBranch).toUpperCase().split(/[,\s]+/).map(b => b.trim());
+        const filter = String(filterBranch).toUpperCase();
+        return branches.includes('ALL') || branches.includes(filter) || branches.some(b => b === filter);
+    };
+
+    const matchesSection = (courseSection, filterSection) => {
+        if (!courseSection || filterSection === 'All') return true;
+        const sections = String(courseSection).toUpperCase().split(/[,\s]+/).map(s => s.trim());
+        const filter = String(filterSection).toUpperCase();
+        return sections.includes('ALL') || sections.includes(filter) || sections.some(s => s === filter);
+    };
+
     // --- RENDERERS ---
 
     const renderSyllabusGrid = (year) => {
-        const dynamicCourses = courses.filter(c =>
+        // ONLY SHOW DATABASE SUBJECTS - No static curriculum merging
+        // This ensures that when admin deletes a subject, it's GONE from the view
+        const allCourses = courses.filter(c =>
             String(c.year) === String(year) &&
-            (selectedBranchFilter === 'All' || c.branch?.toLowerCase() === selectedBranchFilter.toLowerCase() || c.branch === 'All') &&
-            (selectedSectionFilter === 'All' || c.section === 'All' || c.section === selectedSectionFilter)
+            !c.isHidden &&
+            c.status !== 'Inactive' &&
+            matchesBranch(c.branch, selectedBranchFilter) &&
+            matchesSection(c.section, selectedSectionFilter)
         );
 
-        let allCourses = [...dynamicCourses];
-        if (selectedBranchFilter !== 'All') {
-            const staticData = getYearData(selectedBranchFilter, String(year));
-            staticData?.semesters?.forEach(s => {
-                // strict override: if ANY dynamic course exists for this semester, ignore static data completely
-                const hasDynamicForSem = dynamicCourses.some(dc => String(dc.semester) === String(s.sem));
+        console.log(`[AcademicHub] Rendering year ${year}:`, {
+            totalCourses: courses.length,
+            filtered: allCourses.length,
+            branch: selectedBranchFilter,
+            section: selectedSectionFilter
+        });
 
-                if (!hasDynamicForSem) {
-                    s.subjects.forEach(sub => {
-                        allCourses.push({ ...sub, year, semester: s.sem, branch: selectedBranchFilter, isStatic: true, section: 'All' });
-                    });
-                }
-            });
-        }
 
         const semesters = Array.from({ length: 2 }, (_, i) => (year - 1) * 2 + i + 1);
 
@@ -80,28 +105,29 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
                     {semesters.map(sem => {
                         const semCourses = allCourses.filter(c => String(c.semester) === String(sem));
                         return (
-                            <div key={sem} className="admin-card hub-sem-card">
-                                <div className="hub-sem-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--admin-border)' }}>
-                                    <span className="admin-badge primary">SEMESTER {sem}</span>
-                                    <button className="admin-btn admin-btn-outline" style={{ padding: '0.4rem 0.8rem', height: 'auto', fontSize: '0.8rem' }} onClick={() => openModal('course', { year, semester: sem, branch: selectedBranchFilter, section: selectedSectionFilter })}>
+                            <div key={sem} className="admin-card hub-sem-card sentinel-floating">
+                                <div className="sentinel-scanner"></div>
+                                <div className="hub-sem-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
+                                    <span className="admin-badge primary" style={{ fontWeight: 950 }}>SEMESTER {sem}</span>
+                                    <button className="admin-btn admin-btn-outline" style={{ padding: '0.4rem 0.8rem', height: 'auto', fontSize: '0.8rem', fontWeight: 950, borderRadius: '8px' }} onClick={() => openModal('course', { year, semester: sem, branch: selectedBranchFilter, section: selectedSectionFilter })}>
                                         <FaPlus /> ADD
                                     </button>
                                 </div>
                                 <div className="hub-subjects-list" style={{ display: 'grid', gap: '1rem' }}>
                                     {semCourses.map(c => {
                                         return (
-                                            <div key={c._id || c.id || c.code} className="admin-list-item" style={c.isStatic ? { borderStyle: 'dashed', background: 'white' } : {}}>
+                                            <div key={c._id || c.id || c.code} className="admin-list-item" style={{ ... (c.isStatic ? { borderStyle: 'dashed', background: '#f8fafc' } : {}), padding: '1rem', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
                                                 <div className="hub-subject-info">
-                                                    <span className="admin-badge accent" style={{ fontSize: '0.65rem' }}>{c.code}</span>
-                                                    <h4 style={{ margin: '0.5rem 0', fontSize: '0.95rem', fontWeight: 700, color: 'var(--admin-secondary)' }}>{c.name}</h4>
-                                                    <div className="hub-subject-meta" style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', fontWeight: 600 }}>
+                                                    <span className="admin-badge accent" style={{ fontSize: '0.65rem', fontWeight: 950 }}>{c.code}</span>
+                                                    <h4 style={{ margin: '0.5rem 0', fontSize: '0.95rem', fontWeight: 950, color: '#1e293b' }}>{c.name}</h4>
+                                                    <div className="hub-subject-meta" style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 800 }}>
                                                         <span>{c.branch || 'Common'}</span> • <span>Sec {c.section || 'All'}</span>
                                                     </div>
                                                 </div>
                                                 <div className="hub-subject-actions" style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    <button onClick={() => openModal('material', { subject: c.name, year: c.year, semester: c.semester, branch: c.branch || selectedBranchFilter })} className="admin-action-btn" title="Upload Resources"><FaFileUpload /></button>
-                                                    <button onClick={() => openModal('course', c)} className="admin-action-btn secondary" title="Edit Subject"><FaEdit /></button>
-                                                    <button onClick={() => handleDeleteCourse(c)} className="admin-action-btn danger" title="Delete Subject"><FaTrash /></button>
+                                                    <button onClick={() => openModal('material', { subject: c.name, year: c.year, semester: c.semester, branch: c.branch || selectedBranchFilter })} className="admin-action-btn" title="Upload Resources" style={{ width: '32px', height: '32px', borderRadius: '8px' }}><FaFileUpload /></button>
+                                                    <button onClick={() => openModal('course', c)} className="admin-action-btn secondary" title="Edit Subject" style={{ width: '32px', height: '32px', borderRadius: '8px' }}><FaEdit /></button>
+                                                    <button onClick={() => handleDeleteCourse(c)} className="admin-action-btn danger" title="Delete Subject" style={{ width: '32px', height: '32px', borderRadius: '8px' }}><FaTrash /></button>
                                                 </div>
                                             </div>
                                         );
@@ -139,17 +165,22 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
                 {SECTION_OPTIONS.filter(sec =>
                     ['A', 'B', 'C', 'D'].includes(sec) ||
                     students.some(s => s.section === sec) ||
-                    courses.some(c => c.section === sec)
+                    courses.some(c => matchesSection(c.section, sec))
                 ).map(sec => {
                     const sCount = students.filter(s => s.section === sec).length;
-                    const cCount = courses.filter(c => c.section === sec || c.section === 'All').length;
+                    const cCount = courses.filter(c =>
+                        !c.isHidden &&
+                        c.status !== 'Inactive' &&
+                        matchesSection(c.section, sec)
+                    ).length;
                     return (
-                        <div key={sec} className="admin-card hover-effect" onClick={() => { setHubView('management'); setActiveYearTab(1); setSearchTerm(`Sec ${sec}`); }} style={{ cursor: 'pointer', textAlign: 'center' }}>
-                            <div className="label" style={{ fontWeight: 800, color: 'var(--admin-text-muted)', fontSize: '0.75rem', letterSpacing: '0.05em' }}>SECTION</div>
-                            <div className="count" style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--admin-secondary)', margin: '0.5rem 0' }}>{sec}</div>
-                            <div className="stats-row" style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '1rem', color: 'var(--admin-primary)', fontSize: '0.85rem', fontWeight: 700 }}>
-                                <span title="Students"><FaUserGraduate /> {sCount}</span>
-                                <span title="Subjects"><FaBook /> {cCount}</span>
+                        <div key={sec} className="admin-card sentinel-floating" onClick={() => { setHubView('management'); setActiveYearTab(1); setSearchTerm(`Sec ${sec}`); }} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                            <div className="sentinel-scanner"></div>
+                            <div className="label" style={{ fontWeight: 900, color: '#94a3b8', fontSize: '0.75rem', letterSpacing: '0.1em' }}>SECTION</div>
+                            <div className="count" style={{ fontSize: '2.5rem', fontWeight: 950, color: '#1e293b', margin: '0.5rem 0' }}>{sec}</div>
+                            <div className="stats-row" style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '1rem', color: '#6366f1', fontSize: '0.85rem', fontWeight: 900 }}>
+                                <span title="Students" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><FaUserGraduate /> {sCount}</span>
+                                <span title="Subjects" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><FaBook /> {cCount}</span>
                             </div>
                         </div>
                     );
@@ -160,8 +191,12 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
 
     const renderManagementTable = () => {
         let filtered = courses.filter(c =>
-            (selectedBranchFilter === 'All' || c.branch === selectedBranchFilter) &&
-            (selectedSectionFilter === 'All' || c.section === selectedSectionFilter)
+            !c.isHidden &&
+            c.status !== 'Inactive' &&
+            matchesBranch(c.branch, selectedBranchFilter) &&
+            matchesSection(c.section, selectedSectionFilter) &&
+            (selectedYearFilter === 'All' || String(c.year) === selectedYearFilter) &&
+            (selectedSemFilter === 'All' || String(c.semester) === selectedSemFilter)
         );
 
         if (searchTerm) {
@@ -174,17 +209,18 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
 
         return (
             <div className="hub-management-view animate-slide-up">
-                <div className="admin-card">
+                <div className="admin-card sentinel-floating">
+                    <div className="sentinel-scanner"></div>
                     <div className="admin-table-wrap">
                         <table className="admin-grid-table">
                             <thead>
-                                <tr>
-                                    <th>SUBJECT & BRANCH</th>
-                                    <th>CODE</th>
-                                    <th>YEAR/SEM</th>
-                                    <th>SECTION</th>
-                                    <th>CONTENT</th>
-                                    <th>ACTIONS</th>
+                                <tr style={{ background: '#f8fafc' }}>
+                                    <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>SUBJECT & BRANCH</th>
+                                    <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>CODE</th>
+                                    <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>YEAR/SEM</th>
+                                    <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>SECTION</th>
+                                    <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>CONTENT</th>
+                                    <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -207,7 +243,7 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
                                             <div className="hub-table-actions" style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button onClick={() => openModal('material', { subject: c.name, year: c.year, semester: c.semester, branch: c.branch })} className="admin-action-btn" title="Upload Resources"><FaFileUpload /></button>
                                                 <button onClick={() => openModal('course', c)} className="admin-action-btn secondary"><FaEdit /></button>
-                                                <button onClick={() => handleDeleteCourse(c._id || c.id)} className="admin-action-btn danger"><FaTrash /></button>
+                                                <button onClick={() => handleDeleteCourse(c)} className="admin-action-btn danger"><FaTrash /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -252,24 +288,37 @@ const AcademicHub = ({ courses, students, materials, openModal, handleDeleteCour
                 </div>
             </header>
 
-            <div className="admin-filter-bar">
-                <select className="admin-filter-select" value={selectedBranchFilter} onChange={e => setSelectedBranchFilter(e.target.value)}>
+            <div className="admin-filter-bar" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <select className="admin-filter-select" value={selectedBranchFilter} onChange={e => setSelectedBranchFilter(e.target.value)} style={{ width: '130px' }}>
                     <option value="All">All Branches</option>
                     {['CSE', 'ECE', 'EEE', 'Mechanical', 'Civil', 'IT', 'AIML'].map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
-                <select className="admin-filter-select" value={selectedSectionFilter} onChange={e => handleSectionChangeInternal(e.target.value)}>
+                <select className="admin-filter-select" value={selectedSectionFilter} onChange={e => handleSectionChangeInternal(e.target.value)} style={{ width: '110px' }}>
                     <option value="All">All Sections</option>
                     {SECTION_OPTIONS.map(s => <option key={s} value={s}>Sec {s}</option>)}
                 </select>
+
                 {hubView === 'management' && (
-                    <div className="admin-search-wrapper" style={{ flex: 1 }}>
-                        <FaSearch className="search-icon" />
-                        <input className="admin-search-input" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                    </div>
+                    <>
+                        <select className="admin-filter-select" value={selectedYearFilter} onChange={e => setSelectedYearFilter(e.target.value)} style={{ width: '100px' }}>
+                            <option value="All">All Years</option>
+                            {[1, 2, 3, 4].map(y => <option key={y} value={String(y)}>Year {y}</option>)}
+                        </select>
+                        <select className="admin-filter-select" value={selectedSemFilter} onChange={e => setSelectedSemFilter(e.target.value)} style={{ width: '100px' }}>
+                            <option value="All">All Sems</option>
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={String(s)}>Sem {s}</option>)}
+                        </select>
+                        <div className="admin-search-wrapper" style={{ flex: 1, minWidth: '150px' }}>
+                            <FaSearch className="search-icon" />
+                            <input className="admin-search-input" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        </div>
+                    </>
                 )}
+
                 <button
                     className="admin-btn admin-btn-primary"
                     onClick={() => openModal('course')}
+                    style={{ marginLeft: hubView === 'management' ? '0' : 'auto' }}
                 >
                     <FaPlus /> ADD SUBJECT
                 </button>

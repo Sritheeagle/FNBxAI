@@ -143,7 +143,7 @@ const StudentSettings = ({ userData, onProfileUpdate }) => {
                                 src={profile.profilePic
                                     ? (profile.profilePic.startsWith('data:') || profile.profilePic.startsWith('http')
                                         ? profile.profilePic
-                                        : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${profile.profilePic.startsWith('/') ? '' : '/'}${profile.profilePic}`)
+                                        : `${process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000'}${profile.profilePic.startsWith('/') ? '' : '/'}${profile.profilePic}`)
                                     : `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.studentName || 'Student'}`}
                                 alt="Profile"
                                 onError={(e) => {

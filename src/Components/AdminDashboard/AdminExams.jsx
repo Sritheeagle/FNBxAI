@@ -70,9 +70,11 @@ const AdminExams = () => {
         if (!window.confirm("Are you sure you want to delete this exam?")) return;
         try {
             await apiDelete(`/api/exams/${id}`);
-            setExams(prev => prev.filter(e => e._id !== id));
+            alert("Exam deleted successfully");
         } catch (e) {
             alert("Failed to delete exam: " + e.message);
+        } finally {
+            fetchAllExams();
         }
     };
 
@@ -139,15 +141,17 @@ const AdminExams = () => {
         return (
             <div className="animate-fade-in">
                 <div className="admin-stats-grid mb-lg">
-                    <div className="admin-summary-card">
-                        <div className="summary-icon-box" style={{ background: '#eff6ff', color: 'var(--admin-primary)' }}><FaUserGraduate /></div>
-                        <div className="value">{totalAttempts}</div>
-                        <div className="label">TOTAL EVALUATIONS</div>
+                    <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s' }}>
+                        <div className="sentinel-scanner"></div>
+                        <div className="summary-icon-box" style={{ background: '#eff6ff', color: '#6366f1', width: '50px', height: '50px', borderRadius: '14px' }}><FaUserGraduate /></div>
+                        <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{totalAttempts}</div>
+                        <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>TOTAL EVALUATIONS</div>
                     </div>
-                    <div className="admin-summary-card">
-                        <div className="summary-icon-box" style={{ background: '#ecfdf5', color: 'var(--admin-success)' }}><FaChartBar /></div>
-                        <div className="value">{isNaN(avgScore) ? 0 : avgScore}%</div>
-                        <div className="label">AVERAGE SCORE</div>
+                    <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1.5s' }}>
+                        <div className="sentinel-scanner"></div>
+                        <div className="summary-icon-box" style={{ background: '#ecfdf5', color: '#10b981', width: '50px', height: '50px', borderRadius: '14px' }}><FaChartBar /></div>
+                        <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{isNaN(avgScore) ? 0 : avgScore}%</div>
+                        <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>AVERAGE PROFICIENCY</div>
                     </div>
                 </div>
 
@@ -196,15 +200,16 @@ const AdminExams = () => {
 
     const renderManage = () => (
         <div className="animate-fade-in">
-            <div className="admin-action-bar compact" style={{ padding: '0.5rem 1.5rem', marginBottom: '2rem' }}>
+            <div className="admin-action-bar compact" style={{ padding: '0.5rem 1.5rem', marginBottom: '2.5rem' }}>
                 <button onClick={() => {
                     setExamForm({ title: '', subject: '', topic: '', branch: 'CSE', year: '1', section: 'A', durationMinutes: 30, totalMarks: 0, questions: [] });
                     setView('create');
-                }} className="admin-btn admin-btn-primary">
-                    <FaPlus /> CREATE NEW EXAM
+                }} className="admin-btn admin-btn-primary" style={{ height: '48px', fontWeight: 950 }}>
+                    <FaPlus /> INITIALIZE ASSESSMENT
                 </button>
             </div>
-            <div className="admin-card">
+            <div className="admin-card sentinel-floating" style={{ animationDelay: '0s' }}>
+                <div className="sentinel-scanner"></div>
                 <div className="admin-table-wrap">
                     <table className="admin-grid-table">
                         <thead>
@@ -217,18 +222,18 @@ const AdminExams = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {exams.map(ex => (
+                            {exams.map((ex, idx) => (
                                 <tr key={ex._id}>
-                                    <td style={{ fontWeight: 800, color: 'var(--admin-secondary)' }}>{ex.title}</td>
+                                    <td style={{ fontWeight: 950, color: '#1e293b' }}>{ex.title}</td>
                                     <td>
-                                        <span className="admin-badge primary">{ex.branch}-Y{ex.year}</span>
+                                        <span className="admin-badge primary" style={{ fontWeight: 950, fontSize: '0.6rem' }}>{ex.branch}-Y{ex.year}</span>
                                     </td>
-                                    <td>{ex.questions?.length || 0} Qs / {ex.totalMarks} MP</td>
-                                    <td>{ex.durationMinutes}m</td>
+                                    <td style={{ fontWeight: 800, fontSize: '0.85rem' }}>{ex.questions?.length || 0} Qs / {ex.totalMarks} MP</td>
+                                    <td style={{ fontWeight: 850, fontSize: '0.85rem' }}>{ex.durationMinutes}M</td>
                                     <td>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button onClick={() => handleEditExam(ex)} className="action-btn edit-btn" style={{ padding: '0.5rem' }}><FaEdit /></button>
-                                            <button onClick={() => handleDeleteExam(ex._id)} className="action-btn" style={{ padding: '0.5rem', color: 'var(--admin-danger)', borderColor: 'var(--admin-danger)' }}><FaTrash /></button>
+                                        <div style={{ display: 'flex', gap: '0.6rem' }}>
+                                            <button onClick={() => handleEditExam(ex)} className="action-btn edit-btn" style={{ padding: '0.4rem', borderRadius: '8px' }}><FaEdit /></button>
+                                            <button onClick={() => handleDeleteExam(ex._id)} className="action-btn" style={{ padding: '0.4rem', color: '#ef4444', borderColor: '#fee2e2', borderRadius: '8px' }}><FaTrash /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -260,9 +265,7 @@ const AdminExams = () => {
                     </div>
                     <div className="admin-form-group">
                         <label className="admin-form-label">BRANCH</label>
-                        <select className="admin-form-input" value={examForm.branch} onChange={e => setExamForm({ ...examForm, branch: e.target.value })}>
-                            {['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'AIML'].map(b => <option key={b} value={b}>{b}</option>)}
-                        </select>
+                        <input className="admin-form-input" value={examForm.branch} onChange={e => setExamForm({ ...examForm, branch: e.target.value })} placeholder="e.g. CSE, ECE" />
                     </div>
                     <div className="admin-form-group">
                         <label className="admin-form-label">YEAR</label>
@@ -272,15 +275,7 @@ const AdminExams = () => {
                     </div>
                     <div className="admin-form-group">
                         <label className="admin-form-label">SECTION</label>
-                        <select className="admin-form-input" value={examForm.section} onChange={e => setExamForm({ ...examForm, section: e.target.value })}>
-                            <option value="">All Sections</option>
-                            {(() => {
-                                const alphaSections = Array.from({ length: 16 }, (_, i) => String.fromCharCode(65 + i)); // A-P
-                                const numSections = Array.from({ length: 20 }, (_, i) => String(i + 1)); // 1-20
-                                const SECTION_OPTIONS = [...alphaSections, ...numSections];
-                                return SECTION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>);
-                            })()}
-                        </select>
+                        <input className="admin-form-input" value={examForm.section} onChange={e => setExamForm({ ...examForm, section: e.target.value })} placeholder="e.g. A, B" />
                     </div>
                     <div className="admin-form-group">
                         <label className="admin-form-label">DURATION (MIN)</label>
@@ -371,15 +366,15 @@ const AdminExams = () => {
         <div className="animate-fade-in">
             <header className="admin-page-header">
                 <div className="admin-page-title">
-                    <h1>EXAM <span>MANAGEMENT</span></h1>
-                    <p>Manage and track student assessments</p>
+                    <h1>EVALUATION <span>MATRIX</span></h1>
+                    <p>Intelligence-driven assessment protocols and evaluation tracking</p>
                 </div>
                 <div className="admin-action-bar" style={{ margin: 0 }}>
-                    <button onClick={() => setView('analytics')} className={`admin-btn ${view === 'analytics' ? 'admin-btn-primary' : 'admin-btn-outline'}`}>
+                    <button onClick={() => setView('analytics')} className={`admin-btn ${view === 'analytics' ? 'admin-btn-primary' : 'admin-btn-outline'}`} style={{ fontWeight: 950, height: '48px' }}>
                         <FaChartBar /> ANALYTICS
                     </button>
-                    <button onClick={() => setView('manage')} className={`admin-btn ${view !== 'analytics' ? 'admin-btn-primary' : 'admin-btn-outline'}`}>
-                        <FaFileSignature /> MANAGE EXAMS
+                    <button onClick={() => setView('manage')} className={`admin-btn ${view !== 'analytics' ? 'admin-btn-primary' : 'admin-btn-outline'}`} style={{ fontWeight: 950, height: '48px' }}>
+                        <FaFileSignature /> MANAGE PROTOCOLS
                     </button>
                 </div>
             </header>

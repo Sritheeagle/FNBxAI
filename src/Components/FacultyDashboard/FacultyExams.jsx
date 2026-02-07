@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FaPlus, FaTrash, FaClipboardList, FaArrowLeft, FaShieldAlt, FaEdit, FaFilter } from 'react-icons/fa';
+import { FaExclamationTriangle } from 'react-icons/fa';
 import './FacultyDashboard.css';
 import { apiPost, apiGet, apiDelete, apiPut } from '../../utils/apiClient';
 import sseClient from '../../utils/sseClient';
@@ -27,18 +28,7 @@ const FacultyExams = ({ subject, year, sections, facultyId, branch }) => {
         correctOptionIndex: 0, marks: 1
     });
 
-    useEffect(() => {
-        fetchExams();
-
-        const unsub = sseClient.onUpdate((ev) => {
-            if (ev.resource === 'exams') {
-                fetchExams();
-            }
-        });
-        return unsub;
-    }, [facultyId]);
-
-    const fetchExams = async () => {
+    const fetchExams = useCallback(async () => {
         setLoading(true);
         try {
             const data = await apiGet(`/api/exams/faculty/${facultyId}`);
@@ -48,7 +38,50 @@ const FacultyExams = ({ subject, year, sections, facultyId, branch }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [facultyId]);
+
+    useEffect(() => {
+        fetchExams();
+
+        const unsub = sseClient.onUpdate((ev) => {
+            if (ev.resource === 'exams') {
+                fetchExams();
+            }
+        });
+        return unsub;
+    }, [fetchExams]);
+
+    const [viewMode, setViewMode] = useState('manage'); // manage, sentinel
+    const [activeMonitorId, setActiveMonitorId] = useState(null);
+    const [liveExamStats, setLiveExamStats] = useState({ active: 0, submitted: 0, flags: 0 });
+    const [monitorLogs, setMonitorLogs] = useState([]);
+
+    useEffect(() => {
+        const unsub = sseClient.onUpdate((ev) => {
+            if (ev.resource === 'exam-monitor' && activeMonitorId && ev.examId === activeMonitorId) {
+                // Handle live proctoring events
+                const newLog = {
+                    type: ev.type,
+                    studentId: ev.studentId,
+                    details: ev.details || (ev.type === 'start' ? 'Initalized Exam' : ev.type === 'submit' ? 'Completed Session' : ''),
+                    timestamp: ev.timestamp || new Date()
+                };
+
+                setMonitorLogs(prev => [newLog, ...prev].slice(0, 50));
+
+                if (ev.type === 'start') {
+                    setLiveExamStats(prev => ({ ...prev, active: prev.active + 1 }));
+                }
+                if (ev.type === 'flag') {
+                    setLiveExamStats(prev => ({ ...prev, flags: prev.flags + 1 }));
+                }
+                if (ev.type === 'submit') {
+                    setLiveExamStats(prev => ({ ...prev, active: Math.max(0, prev.active - 1), submitted: prev.submitted + 1 }));
+                }
+            }
+        });
+        return unsub;
+    }, [activeMonitorId]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -149,6 +182,102 @@ const FacultyExams = ({ subject, year, sections, facultyId, branch }) => {
         }
     };
 
+    const startSentinelMonitor = (examId) => {
+        setActiveMonitorId(examId);
+        setViewMode('sentinel');
+        setLiveExamStats({ active: 0, submitted: 0, flags: 0 });
+        setMonitorLogs([]);
+    };
+
+    if (viewMode === 'sentinel') {
+        const currentExam = exams.find(e => e._id === activeMonitorId) || {};
+        return (
+            <div className="animate-fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <header className="f-view-header" style={{ marginBottom: '2rem' }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ background: '#ef4444', color: 'white', padding: '0.5rem', borderRadius: '12px', display: 'flex' }}>
+                                <FaShieldAlt size={24} />
+                            </div>
+                            <div>
+                                <h2 style={{ color: '#ef4444' }}>SENTINEL <span>MONITOR</span></h2>
+                                <p className="nexus-subtitle" style={{ color: '#f87171' }}>Live Exam Security & Progress Tracking • {currentExam.title}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button onClick={() => setViewMode('manage')} className="f-node-btn secondary">
+                        <FaArrowLeft /> EXIT MONITOR
+                    </button>
+                </header>
+
+                <div className="f-sentinel-dashboard" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '2rem', flex: 1 }}>
+                    {/* LEFT PANEL: LIVE STATS */}
+                    <div className="f-sentinel-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div className="f-node-card sentinel-floating" style={{ padding: '2rem', textAlign: 'center', background: '#0f172a', color: 'white', border: '1px solid #1e293b', boxShadow: '0 0 30px rgba(99, 102, 241, 0.2)', animationDelay: '0s' }}>
+                            <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'var(--accent-primary)', opacity: 0.5 }}></div>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#94a3b8', letterSpacing: '0.15em' }}>ACTIVE CANDIDATES</div>
+                            <div style={{ fontSize: '4.5rem', fontWeight: 950, lineHeight: 1, margin: '1.25rem 0', color: '#6366f1', textShadow: '0 0 20px rgba(99, 102, 241, 0.4)' }}>
+                                {liveExamStats.active}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                                <span className="f-meta-badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)' }}>{liveExamStats.submitted} DEPLOYED</span>
+                                <span className="f-meta-badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}>{liveExamStats.flags} ANOMALIES</span>
+                            </div>
+                        </div>
+
+                        <div className="f-node-card" style={{ padding: '1.5rem', flex: 1 }}>
+                            <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: '#64748b' }}>SECURITY LOG</h4>
+                            <div className="sentinel-log-feed" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
+                                {monitorLogs.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.8rem' }}>Waiting for activity...</div>
+                                ) : monitorLogs.map((log, i) => (
+                                    <div key={i} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', paddingBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
+                                        <div style={{
+                                            width: '8px', height: '8px', borderRadius: '50%',
+                                            background: log.type === 'flag' ? '#ef4444' : log.type === 'start' ? '#10b981' : '#6366f1',
+                                            marginTop: '6px'
+                                        }}></div>
+                                        <div>
+                                            <div style={{ fontWeight: 850, fontSize: '0.85rem', color: log.type === 'flag' ? '#ef4444' : '#1e293b' }}>
+                                                {log.type.toUpperCase()}: {log.details}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                                Student: {log.studentId} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* RIGHT PANEL: STUDENT GRID */}
+                    <div className="f-sentinel-grid" style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                        gap: '1rem',
+                        alignContent: 'start',
+                        overflowY: 'auto',
+                        padding: '0.5rem'
+                    }}>
+                        {Array.from({ length: liveExamStats.active }).map((_, i) => (
+                            <div key={i} className="f-node-card" style={{ padding: '1rem', border: i < 3 ? '1px solid #fca5a5' : '1px solid transparent', background: i < 3 ? '#fef2f2' : 'white' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: i < 12 ? '#10b981' : '#f59e0b' }}></div>
+                                    {i < 3 && <FaExclamationTriangle color="#ef4444" size={12} />}
+                                </div>
+                                <div style={{ fontWeight: 900, fontSize: '0.9rem', color: '#1e293b' }}>Student {i + 1}</div>
+                                <div style={{ width: '100%', height: '4px', background: '#f1f5f9', borderRadius: '2px', marginTop: '1rem', overflow: 'hidden' }}>
+                                    <div style={{ width: `${Math.random() * 100}%`, height: '100%', background: '#6366f1' }}></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (showCreate) {
         return (
             <div className="animate-fade-in">
@@ -203,10 +332,7 @@ const FacultyExams = ({ subject, year, sections, facultyId, branch }) => {
                         </div>
                         <div className="nexus-group">
                             <label className="f-form-label">Operational Section</label>
-                            <select name="section" value={formData.section} onChange={handleInputChange} className="f-form-select">
-                                <option value="">Universal (Global Deployment)</option>
-                                {sections && sections.map(s => <option key={s} value={s}>Section {s}</option>)}
-                            </select>
+                            <input type="text" name="section" value={formData.section} onChange={handleInputChange} className="f-form-select" placeholder="e.g. A, B or leave blank for Universal" />
                         </div>
                     </div>
 
@@ -376,40 +502,66 @@ const FacultyExams = ({ subject, year, sections, facultyId, branch }) => {
                         </div>
                     </div>
 
-                    <div className="f-exam-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                        {exams.filter(exam => selectedSectionFilter === 'All' || exam.section === selectedSectionFilter).map(exam => (
-                            <div key={exam._id} className="f-node-card animate-slide-up" style={{ padding: '2rem', position: 'relative', overflow: 'hidden' }}>
+                    <div className="f-exam-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '2rem' }}>
+                        {exams.filter(exam => selectedSectionFilter === 'All' || exam.section === selectedSectionFilter).map((exam, i) => (
+                            <div key={exam._id} className="f-node-card sentinel-floating" style={{ padding: '2rem', position: 'relative', overflow: 'hidden', animationDelay: `${i * -0.5}s` }}>
+                                <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'var(--accent-primary)', opacity: 0.3 }}></div>
                                 <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--accent-primary)' }}></div>
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                                    <div className="f-exam-topic" style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{exam.topic || 'General Knowledge'}</div>
+                                    <div className="f-exam-topic" style={{ fontSize: '0.72rem', fontWeight: 950, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', background: 'rgba(99, 102, 241, 0.05)', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>{exam.topic || 'General Knowledge'}</div>
                                     <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                        <button onClick={() => handleEditExam(exam)} className="f-quick-btn shadow" style={{ width: '30px', height: '30px', fontSize: '0.8rem' }}><FaEdit /></button>
-                                        <button onClick={() => handleDeleteExam(exam._id)} className="f-quick-btn shadow delete" style={{ width: '30px', height: '30px', fontSize: '0.8rem' }}><FaTrash /></button>
+                                        <button onClick={() => handleEditExam(exam)} className="f-quick-btn shadow" style={{ width: '30px', height: '30px', fontSize: '0.8rem', borderRadius: '8px' }}><FaEdit /></button>
+                                        <button onClick={() => handleDeleteExam(exam._id)} className="f-quick-btn shadow delete" style={{ width: '30px', height: '30px', fontSize: '0.8rem', borderRadius: '8px' }}><FaTrash /></button>
                                     </div>
                                 </div>
 
-                                <h3 style={{ fontSize: '1.25rem', fontWeight: 950, color: '#1e293b', margin: '0 0 0.4rem', lineHeight: 1.2 }}>{exam.title}</h3>
-                                <div className="f-meta-badge type" style={{ marginBottom: '1.5rem', background: '#f1f5f9', color: '#475569', fontSize: '0.65rem' }}>{exam.week.toUpperCase()} SEQUENCE</div>
+                                <h3 style={{ fontSize: '1.35rem', fontWeight: 950, color: '#1e293b', margin: '0 0 0.4rem', lineHeight: 1.2, letterSpacing: '-0.02em' }}>{exam.title}</h3>
+                                <div className="f-meta-badge type" style={{ marginBottom: '1.5rem', background: '#f1f5f9', color: '#475569', fontSize: '0.65rem', fontWeight: 900 }}>{exam.week.toUpperCase()} SEQUENCE</div>
 
-                                <div className="f-exam-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1.25rem', background: '#f8fafc', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                                <div className="f-exam-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1.25rem', background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '16px' }}>
                                     <div className="f-exam-stat-row">
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem' }}>QUESTIONS</div>
-                                        <div style={{ fontWeight: 950, color: '#1e293b' }}>{exam.questions.length} NODES</div>
+                                        <div style={{ fontSize: '0.62rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem', textTransform: 'uppercase' }}>QUESTIONS</div>
+                                        <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '0.85rem' }}>{exam.questions.length} NODES</div>
                                     </div>
                                     <div className="f-exam-stat-row">
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem' }}>ALLOCATION</div>
-                                        <div style={{ fontWeight: 950, color: '#1e293b' }}>{exam.durationMinutes} MIN</div>
+                                        <div style={{ fontSize: '0.62rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem', textTransform: 'uppercase' }}>ALLOCATION</div>
+                                        <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '0.85rem' }}>{exam.durationMinutes} MIN</div>
                                     </div>
                                     <div className="f-exam-stat-row">
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem' }}>WEIGHT</div>
-                                        <div style={{ fontWeight: 950, color: '#1e293b' }}>{exam.totalMarks || exam.questions.length} MARKS</div>
+                                        <div style={{ fontSize: '0.62rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem', textTransform: 'uppercase' }}>WEIGHT</div>
+                                        <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '0.85rem' }}>{exam.totalMarks || exam.questions.length} MARKS</div>
                                     </div>
                                     <div className="f-exam-stat-row">
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem' }}>TARGET</div>
-                                        <div style={{ fontWeight: 950, color: '#10b981' }}>{exam.section ? `SEC ${exam.section}` : 'UNIVERSAL'}</div>
+                                        <div style={{ fontSize: '0.62rem', fontWeight: 850, color: '#94a3b8', marginBottom: '0.2rem', textTransform: 'uppercase' }}>TARGET</div>
+                                        <div style={{ fontWeight: 950, color: '#10b981', fontSize: '0.85rem' }}>{exam.section ? `SEC ${exam.section}` : 'UNIVERSAL'}</div>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => startSentinelMonitor(exam._id)}
+                                    style={{
+                                        width: '100%',
+                                        marginTop: '1.5rem',
+                                        padding: '0.9rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid rgba(99, 102, 241, 0.2)',
+                                        background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                                        color: 'white',
+                                        fontWeight: 950,
+                                        fontSize: '0.8rem',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.75rem',
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(99, 102, 241, 0.4)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)'; }}
+                                >
+                                    <FaShieldAlt /> LAUNCH SENTINEL MONITOR
+                                </button>
                             </div>
                         ))}
                     </div>

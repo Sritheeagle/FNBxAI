@@ -133,8 +133,9 @@ const FacultySettings = ({ facultyData, onProfileUpdate }) => {
                 )}
             </header>
 
-            <div className="f-node-card animate-slide-up" style={{ minHeight: '600px', padding: '2.5rem' }}>
-                <div className="nexus-glass-pills" style={{ marginBottom: '3rem' }}>
+            <div className="f-node-card sentinel-floating" style={{ minHeight: '600px', padding: '2.5rem', animationDelay: '0s', position: 'relative', overflow: 'hidden' }}>
+                <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', opacity: 0.2 }}></div>
+                <div className="nexus-glass-pills" style={{ marginBottom: '3.5rem' }}>
                     <button className={`nexus-pill ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
                         <FaUser /> TARGET PROFILE
                     </button>
@@ -232,14 +233,14 @@ const FacultySettings = ({ facultyData, onProfileUpdate }) => {
                                             </div>
                                         )}
                                         {profile.assignments.map((assign, i) => (
-                                            <div key={i} className="f-node-card shadow-sm" style={{ padding: '1.25rem', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div key={i} className="f-node-card sentinel-floating" style={{ padding: '1.25rem', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animationDelay: `${i * -0.5}s`, background: 'white' }}>
                                                 <div>
-                                                    <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '0.95rem' }}>{assign.subject}</div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 850, marginTop: '0.2rem', textTransform: 'uppercase' }}>
-                                                        {assign.branch} • Year {assign.year} • Sec {assign.section}
+                                                    <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '1rem', letterSpacing: '-0.01em' }}>{assign.subject}</div>
+                                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 900, marginTop: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                        {assign.branch} • YEAR {assign.year} • SEC {assign.section}
                                                     </div>
                                                 </div>
-                                                <button onClick={() => removeAssignment(i)} className="f-quick-btn shadow delete" style={{ width: '36px', height: '36px' }}>
+                                                <button onClick={() => removeAssignment(i)} className="f-quick-btn shadow delete" style={{ width: '36px', height: '36px', borderRadius: '10px' }}>
                                                     <FaTrash />
                                                 </button>
                                             </div>

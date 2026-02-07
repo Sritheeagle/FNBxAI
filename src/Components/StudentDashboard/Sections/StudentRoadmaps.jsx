@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fa';
 import api from '../../../utils/apiClient';
 import './StudentRoadmaps.css';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 
 /**
  * STUDENT ROADMAPS
@@ -167,19 +168,22 @@ const StudentRoadmaps = ({ studentData, preloadedData }) => {
 
     if (!roadmaps || roadmaps.length === 0) {
         return (
-            <div className="nexus-page-container fade-in" style={{ textAlign: 'center', padding: '4rem' }}>
-                <FaSearch size={48} style={{ color: '#cbd5e1', marginBottom: '1rem' }} />
-                <h3 style={{ color: '#475569' }}>No Learning Paths Found</h3>
-                <p style={{ color: '#94a3b8' }}>The roadmap library is currently empty. Please initialize the database.</p>
-                <button
-                    onClick={fetchRoadmaps}
-                    style={{
-                        marginTop: '1rem', padding: '10px 20px', borderRadius: '12px',
-                        background: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer'
-                    }}
-                >
-                    Retry Fetching
-                </button>
+            <div className="nexus-page-container fade-in" style={{ padding: '2rem' }}>
+                <ProfessionalEmptyState
+                    title="ROADMAP LIBRARY EMPTY"
+                    description="The learning pipeline is currently offline. No curated paths were found in the database. Please initialize or sync the neural repository."
+                    icon={<FaRoad />}
+                    theme="warning"
+                />
+                <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+                    <button
+                        onClick={fetchRoadmaps}
+                        className="admin-btn admin-btn-primary"
+                        style={{ padding: '0.75rem 2rem', borderRadius: '12px' }}
+                    >
+                        RETRY SYNC
+                    </button>
+                </div>
             </div>
         );
     }
@@ -269,9 +273,13 @@ const StudentRoadmaps = ({ studentData, preloadedData }) => {
                 </div>
 
                 {filteredRoadmaps.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '4rem', color: '#cbd5e1' }}>
-                        <FaSearch size={48} style={{ marginBottom: '1rem' }} />
-                        <p style={{ fontSize: '1.1rem' }}>No roadmaps found for "{searchQuery}"</p>
+                    <div style={{ marginTop: '2rem' }}>
+                        <ProfessionalEmptyState
+                            title="NO MATCHES FOUND"
+                            description={`We couldn't find any roadmaps matching "${searchQuery}". Try searching for specific technologies like Java, Python, or React.`}
+                            icon={<FaSearch />}
+                            theme="info"
+                        />
                     </div>
                 )}
             </div>

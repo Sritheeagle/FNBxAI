@@ -120,8 +120,9 @@ const PersonalDetailsBall = ({ role, data }) => {
     };
 
     return (
-        <div className="pdb-container" ref={containerRef}>
-            <div className={`pdb-card ${isOpen ? 'open' : ''}`}>
+        <div className={`pdb-container pdb-${role}`} ref={containerRef}>
+            <div className={`pdb-card sentinel-floating ${isOpen ? 'open' : ''}`}>
+                <div className="sentinel-scanner"></div>
                 {renderContent()}
             </div>
 

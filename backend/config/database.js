@@ -4,12 +4,27 @@ const mongoose = require('mongoose');
 const databaseConfig = {
     // Connection options for performance
     connectionOptions: {
-        maxPoolSize: 10, // Maximum number of socket connections
-        serverSelectionTimeoutMS: 30000, // Increased timeout to 30s
-        socketTimeoutMS: 45000, // How long a send or receive on a socket can take
-        family: 4, // Force IPv4
-        retryWrites: true, // Retry write operations
-        writeConcern: { w: 'majority' } // Write concern
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        family: 4,
+        retryWrites: true,
+        retryReads: true,
+        writeConcern: { w: 'majority' },
+        readPreference: 'primaryPreferred',
+        readConcern: { level: 'majority' },
+        // SSL/TLS settings
+        ssl: true,
+        tls: true,
+        tlsAllowInvalidCertificates: false,
+        tlsAllowInvalidHostnames: false,
+        // Connection management
+        bufferCommands: false,
+        maxIdleTimeMS: 30000,
+        waitQueueTimeoutMS: 10000,
+        // Heartbeat settings
+        heartbeatFrequencyMS: 10000,
+        minHeartbeatFrequencyMS: 5000
     },
 
     // Index configurations for faster queries
@@ -61,11 +76,22 @@ const databaseConfig = {
 };
 
 // Optimized database connection
-// Optimized database connection
 const connectDatabase = async () => {
     try {
         console.log('🔄 Connecting to MongoDB (Cloud Atlas)...');
-        const conn = await mongoose.connect(process.env.MONGO_URI, databaseConfig.connectionOptions);
+
+        // Enhanced connection options for Atlas
+        const atlasOptions = {
+            ...databaseConfig.connectionOptions,
+            // Additional Atlas-specific settings
+            retryReads: true,
+            readPreference: 'primaryPreferred',
+            readConcern: { level: 'majority' },
+            // Buffer settings
+            bufferCommands: false,
+        };
+
+        const conn = await mongoose.connect(process.env.MONGO_URI, atlasOptions);
         console.log(`✅ MongoDB Connected (Cloud): ${conn.connection.host}`);
 
         // Setup post-connection items
@@ -76,12 +102,39 @@ const connectDatabase = async () => {
 
     } catch (error) {
         console.warn('⚠️ Cloud MongoDB connection failed:', error.message);
+
+        // Check if it's an SSL/TLS error
+        if (error.message.includes('SSL') || error.message.includes('TLS')) {
+            console.log('🔄 SSL/TLS error detected, trying with relaxed settings...');
+            try {
+                const relaxedOptions = {
+                    ...databaseConfig.connectionOptions,
+                    sslValidate: false,
+                    tlsAllowInvalidCertificates: true,
+                    tlsAllowInvalidHostnames: true,
+                };
+
+                const relaxedConn = await mongoose.connect(process.env.MONGO_URI, relaxedOptions);
+                console.log(`✅ MongoDB Connected (Cloud - Relaxed SSL): ${relaxedConn.connection.host}`);
+
+                setupPerformanceMonitoring();
+                await createIndexes();
+                setupConnectionHandlers();
+                return relaxedConn;
+
+            } catch (relaxedError) {
+                console.warn('⚠️ Relaxed SSL connection also failed:', relaxedError.message);
+            }
+        }
+
         console.log('🔄 Attempting fallback to Local MongoDB (mongodb://127.0.0.1:27017/friendly_notebook)...');
 
         try {
             const localConn = await mongoose.connect('mongodb://127.0.0.1:27017/friendly_notebook', {
                 ...databaseConfig.connectionOptions,
-                serverSelectionTimeoutMS: 5000 // Shorter timeout for local
+                serverSelectionTimeoutMS: 5000, // Shorter timeout for local
+                ssl: false, // No SSL for local
+                tls: false,
             });
             console.log(`✅ MongoDB Connected (Local): ${localConn.connection.host}`);
 
@@ -94,7 +147,10 @@ const connectDatabase = async () => {
             console.error('❌ Critical: Both Cloud and Local Database connections failed.');
             console.error('   Cloud Error:', error.message);
             console.error('   Local Error:', localError.message);
-            throw new Error('Database unavailable'); // Propagate to server.js
+
+            // Don't throw error, allow server to start in degraded mode
+            console.log('⚠️ Server will start in degraded mode without database connection');
+            return null;
         }
     }
 };

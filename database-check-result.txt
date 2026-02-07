@@ -1,0 +1,36 @@
+============================================================
+DATABASE CHECK - Faculty & Subjects
+============================================================
+
+FACULTY COUNT: 2
+
+1. Dr. John Smith (john.smith@college.edu)
+   ID: FAC001, Dept: CSE
+   Assignments: 2
+      - Python Programming (Y:1, S:A, B:CSE)
+      - Data Structures (Y:1, S:A, B:CSE)
+
+2. Dr. Sarah Johnson (sarah.johnson@college.edu)
+   ID: FAC002, Dept: CSE
+   Assignments: 1
+      - Web Technologies (Y:1, S:A, B:CSE)
+
+
+COURSES COUNT: 3
+
+1. Python Programming (PY-101)
+   Year:1, Sem:1, Sec:All, Branch:CSE
+2. Data Structures (DS-102)
+   Year:1, Sem:1, Sec:All, Branch:CSE
+3. Web Technologies (WT-103)
+   Year:1, Sem:2, Sec:All, Branch:CSE
+
+============================================================
+MATCHING ANALYSIS
+============================================================
+
+✓ Python Programming -> Dr. John Smith
+✓ Data Structures -> Dr. John Smith
+✓ Web Technologies -> Dr. Sarah Johnson
+
+Matched: 3, Unmatched: 0

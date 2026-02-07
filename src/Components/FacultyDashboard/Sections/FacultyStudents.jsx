@@ -3,20 +3,24 @@ import { FaUserGraduate, FaSearch, FaGraduationCap, FaCodeBranch, FaLayerGroup, 
 import { motion, AnimatePresence } from 'framer-motion';
 import '../FacultyDashboard.css';
 
-const FacultyStudents = ({ studentsList, openAiWithPrompt }) => {
+const FacultyStudents = ({ studentsList, openAiWithPrompt, getFileUrl }) => {
     // Safety check
     studentsList = studentsList || [];
     const [searchTerm, setSearchTerm] = useState('');
     const [filterYear, setFilterYear] = useState('All');
+    const [filterBranch, setFilterBranch] = useState('All');
+    const [selectedStudent, setSelectedStudent] = useState(null);
 
     const filteredStudents = studentsList.filter(student => {
         const matchesSearch = (student.studentName || student.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (student.sid || student.id || '').toLowerCase().includes(searchTerm.toLowerCase());
         const matchesYear = filterYear === 'All' || String(student.year) === String(filterYear);
-        return matchesSearch && matchesYear;
+        const matchesBranch = filterBranch === 'All' || String(student.branch || '').toUpperCase() === String(filterBranch).toUpperCase();
+        return matchesSearch && matchesYear && matchesBranch;
     });
 
     const years = ['All', ...new Set(studentsList.map(s => s.year).filter(Boolean))].sort();
+    const branches = ['All', ...new Set(studentsList.map(s => s.branch).filter(Boolean))].sort();
 
     return (
         <div className="animate-fade-in">
@@ -60,6 +64,18 @@ const FacultyStudents = ({ studentsList, openAiWithPrompt }) => {
                         </button>
                     ))}
                 </div>
+
+                <div className="nexus-glass-pills" style={{ marginBottom: 0 }}>
+                    {branches.map(b => (
+                        <button
+                            key={b}
+                            onClick={() => setFilterBranch(b)}
+                            className={`nexus-pill ${filterBranch === String(b) ? 'active' : ''}`}
+                        >
+                            {b === 'All' ? 'ALL BRANCHES' : b}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Grid */}
@@ -75,25 +91,52 @@ const FacultyStudents = ({ studentsList, openAiWithPrompt }) => {
                                     exit={{ opacity: 0, scale: 0.9 }}
                                     transition={{ duration: 0.2 }}
                                     key={student.sid || student.id || i}
-                                    className="f-node-card bounce-in"
-                                    style={{ padding: '0', overflow: 'hidden', borderTop: '4px solid var(--nexus-primary)' }}
+                                    className="f-node-card sentinel-floating"
+                                    style={{
+                                        padding: '0',
+                                        overflow: 'hidden',
+                                        animationDelay: `${i * -0.5}s`,
+                                        borderTop: `4px solid ${student.attendanceRisk === 'critical' ? 'var(--v-danger, #ef4444)' :
+                                            student.attendanceRisk === 'warning' ? 'var(--v-secondary, #f59e0b)' :
+                                                'var(--v-accent, #10b981)'}`
+                                    }}
                                 >
-                                    <div style={{ padding: '1.5rem 1.5rem 1rem' }}>
+                                    <div className="sentinel-scanner"></div>
+                                    <div style={{ padding: '1.5rem 1.5rem 1rem', position: 'relative' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                            <div className="f-node-type-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--nexus-primary)', width: '56px', height: '56px', borderRadius: '16px' }}>
-                                                <FaUserGraduate size={24} />
+                                            <div className="mentor-portrait" style={{ width: '56px', height: '56px' }}>
+                                                {student.profilePic ? (
+                                                    <img src={getFileUrl(student.profilePic)} alt={student.name} style={{ borderRadius: '14px' }} />
+                                                ) : (
+                                                    <div className="portrait-fallback" style={{ borderRadius: '14px', fontSize: '1rem' }}>
+                                                        {(student.studentName || student.name || 'S').charAt(0)}
+                                                    </div>
+                                                )}
+                                                <div className={`status-dot ${student.attendanceRisk === 'critical' ? 'busy' : 'online'}`}></div>
                                             </div>
-                                            <span className="f-meta-badge unit" style={{ background: '#f1f5f9' }}>
-                                                ID: {student.sid || student.id}
-                                            </span>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <span className="f-meta-badge unit" style={{ background: '#f1f5f9', display: 'block', marginBottom: '0.4rem' }}>
+                                                    ID: {student.sid || student.id}
+                                                </span>
+                                                <span className={`status-tag ${student.attendanceRisk === 'critical' ? 'gold' : ''}`} style={{ fontSize: '0.55rem', fontWeight: 950 }}>
+                                                    {student.attendanceRisk?.toUpperCase() || 'OPTIMAL'} FLOW
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <h3 style={{ margin: '0 0 0.2rem', fontSize: '1.2rem', fontWeight: 950, color: '#1e293b' }}>
                                             {student.studentName || student.name}
                                         </h3>
-                                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', fontWeight: 700 }}>
-                                            {student.email || 'No email provided'}
-                                        </p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 700 }}>
+                                                {student.email || 'No registry email'}
+                                            </span>
+                                            {student.attendancePct !== undefined && (
+                                                <span style={{ fontSize: '0.7rem', fontWeight: 950, color: 'var(--v-primary)' }}>
+                                                    ({student.attendancePct}%)
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div style={{ padding: '1rem 1.5rem', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -109,16 +152,23 @@ const FacultyStudents = ({ studentsList, openAiWithPrompt }) => {
                                             <FaCodeBranch style={{ color: '#94a3b8' }} />
                                             <span>{student.branch || 'General Engineering'}</span>
                                         </div>
-                                        <div style={{ gridColumn: 'span 2', marginTop: '0.5rem' }}>
+                                        <div style={{ gridColumn: 'span 2', marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
                                             <button
                                                 className="f-quick-btn outline"
-                                                style={{ width: '100%', fontSize: '0.7rem', padding: '0.5rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                                                style={{ flex: 1, fontSize: '0.65rem', padding: '0.5rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                                                 onClick={() => {
                                                     const prompt = `Can you provide a pedagogical evaluation and progress report for ${student.studentName} (ID: ${student.sid})? They are in Year ${student.year}, Section ${student.section}, studying ${student.branch}. I want to understand their potential learning hurdles and suggested intervention strategies.`;
                                                     openAiWithPrompt(prompt);
                                                 }}
                                             >
-                                                <FaRobot /> AI EVALUATE
+                                                <FaRobot /> AI
+                                            </button>
+                                            <button
+                                                className="f-quick-btn primary"
+                                                style={{ flex: 2, fontSize: '0.65rem', padding: '0.5rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                                                onClick={() => setSelectedStudent(student)}
+                                            >
+                                                <FaSearch /> VIEW DOSSIER
                                             </button>
                                         </div>
                                     </div>
@@ -136,6 +186,93 @@ const FacultyStudents = ({ studentsList, openAiWithPrompt }) => {
                     </div>
                 )}
             </div>
+
+            {/* Dossier Modal */}
+            <AnimatePresence>
+                {selectedStudent && (
+                    <div className="nexus-modal-overlay" onClick={() => setSelectedStudent(null)} style={{ zIndex: 1000 }}>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="nexus-modal-content"
+                            onClick={e => e.stopPropagation()}
+                            style={{ maxWidth: '800px', width: '95%', padding: 0, overflow: 'hidden' }}
+                        >
+                            <div className="sentinel-scanner"></div>
+                            <div className="f-modal-header" style={{ padding: '2rem', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                                    <div className="mentor-portrait" style={{ width: '80px', height: '80px' }}>
+                                        {selectedStudent.profilePic ? (
+                                            <img src={getFileUrl(selectedStudent.profilePic)} alt={selectedStudent.name} />
+                                        ) : (
+                                            <div className="portrait-fallback" style={{ fontSize: '2rem' }}>
+                                                {(selectedStudent.studentName || selectedStudent.name || 'S').charAt(0)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="nexus-page-subtitle" style={{ marginBottom: '0.2rem' }}>Personnel File // {selectedStudent.sid}</div>
+                                        <h2 style={{ fontSize: '2rem', fontWeight: 950, margin: 0 }}>{selectedStudent.studentName || selectedStudent.name}</h2>
+                                        <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
+                                            <span className="f-meta-badge type">{selectedStudent.branch}</span>
+                                            <span className="f-meta-badge unit">YEAR {selectedStudent.year}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button className="nexus-modal-close" onClick={() => setSelectedStudent(null)}>&times;</button>
+                            </div>
+
+                            <div className="nexus-modal-body" style={{ padding: '2rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                                    <div className="f-node-card" style={{ padding: '1.5rem', background: '#fff', border: '1px solid #f1f5f9' }}>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 950, color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>ATTENDANCE STATUS</span>
+                                        <div style={{ fontSize: '1.8rem', fontWeight: 950, color: selectedStudent.attendanceRisk === 'critical' ? '#ef4444' : '#10b981' }}>
+                                            {selectedStudent.attendancePct || 0}%
+                                        </div>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b' }}>Current presence rate</span>
+                                    </div>
+                                    <div className="f-node-card" style={{ padding: '1.5rem', background: '#fff', border: '1px solid #f1f5f9' }}>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 950, color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>OPERATIONAL FLOW</span>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: 950, color: '#1e293b', textTransform: 'uppercase' }}>
+                                            {selectedStudent.attendanceRisk || 'OPTIMAL'}
+                                        </div>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b' }}>Registry risk level</span>
+                                    </div>
+                                    <div className="f-node-card" style={{ padding: '1.5rem', background: '#fff', border: '1px solid #f1f5f9', gridColumn: 'span 2' }}>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 950, color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>CONTACT CHANNELS</span>
+                                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>📧 {selectedStudent.email}</div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>📱 {selectedStudent.phone || 'NO PHONE SYNC'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                                    <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', fontWeight: 950 }}>SYSTEM RECOMMENDATIONS</h4>
+                                    <p style={{ fontSize: '0.85rem', color: '#475569', lineHeight: 1.6, margin: 0 }}>
+                                        {selectedStudent.attendanceRisk === 'critical'
+                                            ? "URGENT ALERT: Student's spectral presence has dropped below critical thresholds. Immediate pedagogical intervention and counseling sub-routines are recommended to prevent credit fragmentation."
+                                            : "STABLE FLOW: Student maintains optimal sync with the curriculum node. Continue standard monitoring and periodic intelligence updates."}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="f-modal-actions" style={{ padding: '1.5rem 2rem', background: '#f1f5f9', borderTop: '1px solid #e2e8f0' }}>
+                                <button className="f-cancel-btn" onClick={() => setSelectedStudent(null)}>CLOSE TERMINAL</button>
+                                <button
+                                    className="f-quick-btn primary"
+                                    onClick={() => {
+                                        const prompt = `I am reviewing the dossier for ${selectedStudent.studentName}. They have ${selectedStudent.attendancePct}% attendance and a ${selectedStudent.attendanceRisk} risk profile. What specific academic coaching steps should I take?`;
+                                        openAiWithPrompt(prompt);
+                                    }}
+                                >
+                                    COACH WITH AI
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -15,7 +15,7 @@ const StudentProfileCard = ({ userData, setShowProfilePhotoModal, setView }) => 
                         <img
                             src={userData.profilePic.startsWith('data:') || userData.profilePic.startsWith('http')
                                 ? userData.profilePic
-                                : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${userData.profilePic.startsWith('/') ? '' : '/'}${userData.profilePic}`}
+                                : `${process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000'}${userData.profilePic.startsWith('/') ? '' : '/'}${userData.profilePic}`}
                             alt="Profile"
                             onError={(e) => {
                                 console.warn("Profile image load failed, falling back to avatar.");

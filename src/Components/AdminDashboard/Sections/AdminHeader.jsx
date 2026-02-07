@@ -79,6 +79,7 @@ const AdminHeader = ({
                 ease: 'easeInOut'
             }}
         >
+            <div className="sentinel-scanner" style={{ zIndex: 10, height: '2px', opacity: 0.15 }}></div>
             <div className="admin-sidebar-header">
                 <motion.div
                     className="admin-brand-group"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FaEdit, FaSave, FaTimes, FaCheck, FaFilter, FaFileDownload, FaFileUpload, FaCalculator } from 'react-icons/fa';
+import { FaEdit, FaSave, FaTimes, FaCheck, FaFilter, FaFileDownload, FaFileUpload, FaCalculator, FaUsers } from 'react-icons/fa';
 import { apiGet, apiPost } from '../../utils/apiClient';
 import sseClient from '../../utils/sseClient';
 import './FacultyMarks.css';
@@ -61,8 +61,14 @@ const FacultyMarks = ({ facultyData }) => {
         const filtered = studentList.filter(student => {
             const studentYear = student.year || student.Year || student.currentYear;
             const studentSection = student.section || student.Section || student.class;
-            return String(studentYear) === String(section.year) &&
-                String(studentSection).toUpperCase().trim() === String(section.section).toUpperCase().trim();
+            const studentBranch = String(student.branch || student.Branch || '').toUpperCase().trim();
+            const targetBranch = String(section.branch || '').toUpperCase().trim();
+
+            const yearMatch = String(studentYear) === String(section.year);
+            const sectionMatch = String(studentSection).toUpperCase().trim() === String(section.section).toUpperCase().trim();
+            const branchMatch = !targetBranch || targetBranch === 'ALL' || studentBranch === targetBranch;
+
+            return yearMatch && sectionMatch && branchMatch;
         });
 
         setStudents(prev => {
@@ -106,10 +112,11 @@ const FacultyMarks = ({ facultyData }) => {
                 const year = String(assignment.year || '');
                 const section = String(assignment.section || '').toUpperCase().trim();
                 const subject = assignment.subject || data.subject || 'General';
+                const branch = assignment.branch || assignment.Branch || data.department || 'CSE';
                 if (year && section) {
-                    const key = `${year}-${section}-${subject}`;
+                    const key = `${year}-${section}-${subject}-${branch}`;
                     if (!sectionsMap.has(key)) {
-                        sectionsMap.set(key, { year, section, subject });
+                        sectionsMap.set(key, { year, section, subject, branch });
                     }
                 }
             });
@@ -357,22 +364,24 @@ const FacultyMarks = ({ facultyData }) => {
                 </div>
 
                 {/* Section Stats Ribbon */}
-                <div className="f-stats-ribbon" style={{ display: 'flex', gap: '1.5rem', background: '#f8fafc', padding: '0.5rem 1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                    <div className="ribbon-item">
-                        <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, display: 'block' }}>SECTION AVG</span>
-                        <span style={{ fontSize: '1rem', fontWeight: 900, color: '#4f46e5' }}>
-                            {(students.length > 0 ? (students.reduce((acc, s) => acc + calculateTotal(s.sid || s.studentId).total, 0) / students.length) : 0).toFixed(1)}
-                        </span>
+                <div className="f-stats-ribbon" style={{ display: 'flex', gap: '1.5rem', background: 'transparent', padding: 0 }}>
+                    <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s', background: 'white', minWidth: '180px', padding: '1rem' }}>
+                        <div className="sentinel-scanner"></div>
+                        <div className="summary-icon-box" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5', width: '32px', height: '32px' }}><FaCalculator size={14} /></div>
+                        <div className="value" style={{ fontSize: '1.25rem' }}>{(students.length > 0 ? (students.reduce((acc, s) => acc + calculateTotal(s.sid || s.studentId).total, 0) / students.length) : 0).toFixed(1)}</div>
+                        <div className="label" style={{ fontSize: '0.6rem' }}>SECTION AVERAGE</div>
                     </div>
-                    <div className="ribbon-item" style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: '1.5rem' }}>
-                        <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, display: 'block' }}>HIGHEST</span>
-                        <span style={{ fontSize: '1rem', fontWeight: 900, color: '#10b981' }}>
-                            {students.length > 0 ? Math.max(...students.map(s => calculateTotal(s.sid || s.studentId).total)).toFixed(1) : '0.0'}
-                        </span>
+                    <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1.5s', background: 'white', minWidth: '180px', padding: '1rem' }}>
+                        <div className="sentinel-scanner"></div>
+                        <div className="summary-icon-box" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', width: '32px', height: '32px' }}><FaCheck size={14} /></div>
+                        <div className="value" style={{ fontSize: '1.25rem' }}>{students.length > 0 ? Math.max(...students.map(s => calculateTotal(s.sid || s.studentId).total)).toFixed(1) : '0.0'}</div>
+                        <div className="label" style={{ fontSize: '0.6rem' }}>HIGHEST PERFORMANCE</div>
                     </div>
-                    <div className="ribbon-item" style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: '1.5rem' }}>
-                        <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, display: 'block' }}>STRENGTH</span>
-                        <span style={{ fontSize: '1rem', fontWeight: 900, color: '#f59e0b' }}>{students.length}</span>
+                    <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-3s', background: 'white', minWidth: '180px', padding: '1rem' }}>
+                        <div className="sentinel-scanner"></div>
+                        <div className="summary-icon-box" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', width: '32px', height: '32px' }}><FaUsers size={14} /></div>
+                        <div className="value" style={{ fontSize: '1.25rem' }}>{students.length}</div>
+                        <div className="label" style={{ fontSize: '0.6rem' }}>STUDENT POPULATION</div>
                     </div>
                 </div>
             </div>

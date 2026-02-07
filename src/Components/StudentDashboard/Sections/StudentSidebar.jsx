@@ -15,7 +15,8 @@ const StudentSidebar = ({
     collapsed,
     setCollapsed,
     onLogout,
-    onNavigate
+    onNavigate,
+    getFileUrl
 }) => {
 
     const localHandleLogout = (e) => {
@@ -85,6 +86,7 @@ const StudentSidebar = ({
                 >
                     <div className="brand-icon-box">
                         <FaGraduationCap />
+                        <div className="sidebar-live-dot"></div>
                     </div>
                     {!collapsed && (
                         <div className="brand-text fade-in">
@@ -118,8 +120,19 @@ const StudentSidebar = ({
             <div className="sidebar-footer">
                 {!collapsed && (
                     <div className="user-profile-mini fade-in">
-                        <div className="u-name">{userData.studentName}</div>
-                        <div className="u-meta">{userData.sid} • Y{userData.year}</div>
+                        <div className="sidebar-footer-avatar" style={{ position: 'relative' }}>
+                            <img
+                                src={userData.profilePic ? getFileUrl(userData.profilePic) : (userData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.studentName}`)}
+                                alt="Profile"
+                                style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--v-border)' }}
+                                onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.studentName}`; }}
+                            />
+                            <div className="sidebar-status-beacon" style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', border: '2px solid white' }}></div>
+                        </div>
+                        <div className="user-profile-text">
+                            <div className="u-name" style={{ fontWeight: 950, fontSize: '0.85rem' }}>{userData.studentName}</div>
+                            <div className="u-meta" style={{ fontWeight: 800, fontSize: '0.65rem', color: 'var(--v-text-muted)' }}>{userData.sid} • Y{userData.year}</div>
+                        </div>
                     </div>
                 )}
 

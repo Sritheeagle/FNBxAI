@@ -82,14 +82,18 @@ const CurriculumArchSection = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '2rem', marginBottom: '3rem' }}>
         {/* Section Navigation */}
-        <div className="admin-card" style={{ padding: '1.5rem', height: 'fit-content', maxHeight: '80vh', overflowY: 'auto' }}>
-          <h3 style={{ margin: '0 0 1.25rem 0', color: 'var(--admin-secondary)', fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sections</h3>
+        <div className="admin-card sentinel-floating" style={{ padding: '1.5rem', height: 'fit-content', maxHeight: '80vh', overflowY: 'auto' }}>
+          <div className="sentinel-scanner"></div>
+          <h3 style={{ margin: '0 0 1.25rem 0', color: 'var(--admin-secondary)', fontSize: '0.9rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '4px', height: '16px', background: 'var(--admin-primary)', borderRadius: '4px' }}></div>
+            SUBSYSTEMS
+          </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
             {sections.map(section => (
               <button
                 key={section}
                 className={`admin-btn ${activeSection === section ? 'admin-btn-primary' : 'admin-btn-outline'}`}
-                style={{ padding: '0.5rem', minWidth: 'auto' }}
+                style={{ padding: '0.5rem', minWidth: 'auto', fontWeight: 900, fontSize: '0.75rem' }}
                 onClick={() => setActiveSection(section)}
               >
                 {section}
@@ -99,7 +103,8 @@ const CurriculumArchSection = () => {
         </div>
 
         {/* Section Details */}
-        <div className="admin-card">
+        <div className="admin-card sentinel-floating">
+          <div className="sentinel-scanner"></div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2.5rem', paddingBottom: '2rem', borderBottom: '1px solid var(--admin-border)' }}>
             <div className="admin-form-group">
               <label className="admin-form-label">Section Name</label>

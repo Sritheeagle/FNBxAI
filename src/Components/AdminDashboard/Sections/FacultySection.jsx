@@ -1,17 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { FaPlus, FaEye, FaEdit, FaTrash, FaChalkboardTeacher, FaUsers, FaBook, FaFileUpload } from 'react-icons/fa';
+import { FaPlus, FaEye, FaEdit, FaTrash, FaChalkboardTeacher, FaUsers, FaBook, FaFileUpload, FaSearch, FaBriefcase, FaGraduationCap } from 'react-icons/fa';
 
 /**
-/**
- * Faculty Management
- * Manage instructors and curriculum responsibilities.
+ * FACULTY COMMAND CENTER
+ * Oversight and scheduling of academic instructors and curriculum assignments.
  */
-const FacultySection = ({ faculty, students, openModal, handleDeleteFaculty, allSubjects = [] }) => {
-    const [searchTerm, setSearchTerm] = React.useState('');
-    const [subjectFilter, setSubjectFilter] = React.useState('All');
+const FacultySection = ({ faculty = [], students = [], openModal, handleDeleteFaculty, allSubjects = [], getFileUrl }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [subjectFilter, setSubjectFilter] = useState('All');
 
-    const filteredFaculty = React.useMemo(() => {
+    const filteredFaculty = useMemo(() => {
         return faculty.filter(f => {
             const matchesSearch = (f.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (f.facultyId || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -23,60 +22,82 @@ const FacultySection = ({ faculty, students, openModal, handleDeleteFaculty, all
         });
     }, [faculty, searchTerm, subjectFilter]);
 
-    useEffect(() => {
-        console.log('🎓 FacultySection Rendered');
-        console.log('   - Total Faculty:', faculty.length);
-        console.log('   - Filtered Faculty:', filteredFaculty.length);
-        console.log('   - Faculty Data:', faculty);
-        console.log('   - Search Term:', searchTerm);
-        console.log('   - Subject Filter:', subjectFilter);
-    }, [faculty, filteredFaculty, searchTerm, subjectFilter]);
+    // Calculate Strategic Stats
+    const stats = {
+        total: faculty.length,
+        departments: new Set(faculty.map(f => f.department).filter(Boolean)).size,
+        totalClasses: faculty.reduce((acc, f) => acc + (f.assignments?.length || 0), 0)
+    };
 
     return (
         <div className="animate-fade-in">
             <header className="admin-page-header">
                 <div className="admin-page-title">
-                    <h1>FACULTY <span>DIRECTORY</span></h1>
-                    <p>Total Faculty: {filteredFaculty.length}</p>
+                    <h1>FACULTY <span>COMMAND</span></h1>
+                    <p>Strategic management of academic instructors and curriculum deployments</p>
                 </div>
-                <div className="admin-action-bar compact" style={{ margin: 0, padding: '0.5rem 1.5rem' }}>
+                <div className="admin-action-bar compact">
                     <button className="admin-btn admin-btn-primary" onClick={() => openModal('faculty')}>
                         <FaPlus /> ADD NEW FACULTY
                     </button>
                     <button className="admin-btn admin-btn-outline" onClick={() => openModal('bulk-faculty')}>
-                        <FaFileUpload /> BULK UPLOAD
+                        <FaFileUpload /> BATCH UPLOAD
                     </button>
                 </div>
             </header>
 
-            <div className="admin-filter-bar">
-                <div style={{ flex: 1, minWidth: '250px' }}>
-                    <input
-                        className="admin-form-input full-width"
-                        placeholder="Search by name or ID..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', marginBottom: 0 }}
-                    />
+            {/* Strategic Analytics */}
+            <div className="admin-stats-grid mb-lg">
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#f5f3ff', color: '#8b5cf6', width: '50px', height: '50px', borderRadius: '14px' }}><FaChalkboardTeacher /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{stats.total}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>ACTIVE INSTRUCTORS</div>
                 </div>
-                <select className="admin-filter-select" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-                    <option value="All">All Taught Subjects</option>
-                    {allSubjects.map(s => <option key={s.code} value={s.name}>{s.name}</option>)}
-                </select>
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#ecfdf5', color: '#10b981', width: '50px', height: '50px', borderRadius: '14px' }}><FaBriefcase /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{stats.departments}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>ACTIVE DEPARTMENTS</div>
+                </div>
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-2s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#fff7ed', color: '#f59e0b', width: '50px', height: '50px', borderRadius: '14px' }}><FaGraduationCap /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{stats.totalClasses}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>ASSIGNED DEPLOYMENTS</div>
+                </div>
             </div>
 
-            <div className="admin-card">
+            <div className="admin-card mb-lg">
+                <div className="admin-filter-bar" style={{ gap: '1rem' }}>
+                    <div className="admin-search-wrapper" style={{ flex: 1, minWidth: '300px' }}>
+                        <FaSearch />
+                        <input
+                            className="admin-search-input"
+                            placeholder="SEARCH BY NAME OR ID..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <select className="admin-filter-select" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                        <option value="All">ALL SUBJECTS</option>
+                        {allSubjects.map(s => <option key={s.code} value={s.name}>{s.name.toUpperCase()}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            <div className="admin-card sentinel-floating">
+                <div className="sentinel-scanner"></div>
                 <div className="admin-table-wrap">
                     <table className="admin-grid-table">
                         <thead>
-                            <tr>
-                                <th>FACULTY NAME</th>
-                                <th>FACULTY ID</th>
-                                <th>DEPARTMENT</th>
-                                <th>ASSIGNED SUBJECTS</th>
-                                <th>STUDENT COUNT</th>
-                                <th>CLASS LOAD</th>
-                                <th>ACTIONS</th>
+                            <tr style={{ background: '#f8fafc' }}>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>INSTRUCTOR IDENTITY</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>FACULTY ID</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>DEPARTMENT</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>LOAD DENSITY</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>PERSONNEL IMPACT</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -84,12 +105,22 @@ const FacultySection = ({ faculty, students, openModal, handleDeleteFaculty, all
                                 filteredFaculty.map((f, idx) => {
                                     const assignments = Array.isArray(f.assignments) ? f.assignments : [];
                                     const teachingCount = students.filter(s =>
-                                        assignments.some(a =>
-                                            String(a.year) === String(s.year) &&
-                                            (String(a.section) === String(s.section) || a.section === 'All')
-                                        )
+                                        assignments.some(a => {
+                                            const yMatch = String(a.year) === String(s.year);
+
+                                            const aSections = a.section ? String(a.section).toUpperCase().split(',').map(sec => sec.trim()) : [];
+                                            const sSection = String(s.section || '').toUpperCase();
+                                            const secMatch = !a.section || aSections.includes('ALL') || aSections.includes(sSection);
+
+                                            const aBranches = a.branch ? String(a.branch).toUpperCase().split(',').map(b => b.trim()) : [];
+                                            const sBranch = String(s.branch || '').toUpperCase();
+                                            const branchMatch = !a.branch || aBranches.includes('ALL') || aBranches.includes(sBranch);
+
+                                            return yMatch && secMatch && branchMatch;
+                                        })
                                     ).length;
-                                    const uniqueSubjects = [...new Set(assignments.map(a => a.subject).filter(Boolean))];
+                                    const classLoad = assignments.length;
+                                    const loadPercentage = Math.min(100, (classLoad / 10) * 100); // Assume 10 is max load
 
                                     return (
                                         <motion.tr
@@ -100,37 +131,41 @@ const FacultySection = ({ faculty, students, openModal, handleDeleteFaculty, all
                                         >
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                    <div className="summary-icon-box" style={{ width: '38px', height: '38px', borderRadius: '10px', fontSize: '0.9rem', background: '#f0fdf4', color: '#15803d' }}>
-                                                        <FaChalkboardTeacher />
+                                                    <div style={{
+                                                        width: '40px', height: '40px', borderRadius: '12px',
+                                                        background: 'var(--admin-bg-soft)', display: 'flex',
+                                                        alignItems: 'center', justifyContent: 'center', color: 'var(--admin-primary)',
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        {f.profilePic ? (
+                                                            <img src={getFileUrl(f.profilePic)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        ) : (
+                                                            <FaChalkboardTeacher />
+                                                        )}
                                                     </div>
-                                                    <span style={{ fontWeight: 600 }}>{f.name}</span>
+                                                    <div>
+                                                        <div style={{ fontWeight: 950, color: 'var(--admin-secondary)', fontSize: '0.9rem' }}>{f.name}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-muted)', fontWeight: 800 }}>{f.email || 'PROTOCOL ACTIVE'}</div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td><span className="admin-badge primary">{f.facultyId}</span></td>
-                                            <td>{f.department || 'CENTRAL'}</td>
+                                            <td>{f.department || 'CENTRAL OPS'}</td>
                                             <td>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', maxWidth: '300px' }}>
-                                                    {uniqueSubjects.length > 0 ? (
-                                                        uniqueSubjects.map((subject, sIdx) => (
-                                                            <span key={sIdx} className="admin-badge primary" style={{ fontSize: '0.6rem', textTransform: 'none', background: '#eef2ff', color: '#4338ca' }}>
-                                                                {subject}
-                                                            </span>
-                                                        ))
-                                                    ) : (
-                                                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontStyle: 'italic' }}>NO ASSIGNMENTS</span>
-                                                    )}
+                                                <div style={{ minWidth: '120px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                        <span style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--admin-text-muted)' }}>{classLoad} CLASSES</span>
+                                                        <span style={{ fontSize: '0.65rem', fontWeight: 950 }}>{loadPercentage}%</span>
+                                                    </div>
+                                                    <div style={{ width: '100%', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${loadPercentage}%`, height: '100%', background: loadPercentage > 80 ? '#ef4444' : 'var(--admin-primary)' }}></div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <FaUsers style={{ color: '#94a3b8', fontSize: '0.8rem' }} />
-                                                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{teachingCount}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <FaBook style={{ color: '#94a3b8', fontSize: '0.8rem' }} />
-                                                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{assignments.length} CLASSES</span>
+                                                    <span style={{ fontWeight: 950, fontSize: '0.85rem' }}>{teachingCount} UNITS</span>
                                                 </div>
                                             </td>
                                             <td>
@@ -145,10 +180,10 @@ const FacultySection = ({ faculty, students, openModal, handleDeleteFaculty, all
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="7">
-                                        <div className="admin-empty-state" style={{ padding: '6rem' }}>
-                                            <FaChalkboardTeacher className="admin-empty-icon" style={{ opacity: 0.3 }} />
-                                            <p className="admin-empty-text" style={{ fontWeight: 950, color: 'var(--admin-text-muted)' }}>NO FACULTY FOUND</p>
+                                    <td colSpan="6">
+                                        <div className="admin-empty-state" style={{ padding: '8rem' }}>
+                                            <FaChalkboardTeacher className="admin-empty-icon" style={{ opacity: 0.2 }} />
+                                            <p style={{ fontWeight: 950, color: 'var(--admin-text-muted)', marginTop: '1rem' }}>NO FACULTY ENTITIES REGISTERED</p>
                                         </div>
                                     </td>
                                 </tr>

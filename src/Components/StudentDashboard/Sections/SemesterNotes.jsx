@@ -3,12 +3,13 @@ import { FaPencilAlt, FaTrash, FaStickyNote, FaBook, FaPlus, FaFileAlt, FaSync }
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../../utils/apiClient';
 import './SemesterNotes.css';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 
 /**
  * Student Journal
  * Subject-wise note taking interface.
  */
-const SemesterNotes = ({ semester, studentData, enrolledSubjects = [], serverMaterials = [], assignedFaculty = [] }) => {
+const SemesterNotes = ({ semester, studentData, enrolledSubjects = [], serverMaterials = [], assignedFaculty = [], onRefresh }) => {
     const [notes, setNotes] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -144,7 +145,7 @@ const SemesterNotes = ({ semester, studentData, enrolledSubjects = [], serverMat
 
     const publishedMaterials = (() => {
         try {
-            const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+            const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
             const apiMaterials = (serverMaterials || []).map(m => {
                 const rawUrl = m.fileUrl || m.url || '#';
                 return { ...m, finalUrl: rawUrl.startsWith('http') ? rawUrl : `${API_BASE}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}` };
@@ -164,14 +165,15 @@ const SemesterNotes = ({ semester, studentData, enrolledSubjects = [], serverMat
                     (subjNameMatch && subj.includes(subjNameMatch));
 
                 // Strict Faculty Match: Either the material matches section/year perfectly, 
-                // OR it matches the subject AND was uploaded by one of the student's assigned faculty
+                // OR it matches the subject AND was uploaded by one of the student's assigned faculty OR by Admin
                 const uploaderName = m.uploadedBy?.name || m.uploadedBy || '';
+                const isAdmin = uploaderName.toLowerCase().includes('admin') || m.uploaderRole === 'admin';
                 const isAssignedFaculty = (assignedFaculty || []).some(f =>
                     (f.name && uploaderName && f.name.toLowerCase().includes(uploaderName.toLowerCase())) ||
                     (f.facultyId && m.uploadedBy === f.facultyId)
                 );
 
-                return matchYear && matchSection && subjectMatch && (m.section !== 'All' ? true : isAssignedFaculty);
+                return matchYear && matchSection && subjectMatch && (m.section !== 'All' ? true : (isAssignedFaculty || isAdmin));
             });
         } catch (e) { return []; }
     })();
@@ -185,15 +187,75 @@ const SemesterNotes = ({ semester, studentData, enrolledSubjects = [], serverMat
                     </h3>
                 </div>
                 <div className="js-list">
-                    {subjectsList.map(sub => (
-                        <button
-                            key={sub.code}
-                            onClick={() => setSelectedSubject(sub.code)}
-                            className={`subject-btn ${selectedSubject === sub.code ? 'active' : ''}`}
-                        >
-                            <div className="subject-btn-content">{sub.name}</div>
-                        </button>
-                    ))}
+                    {subjectsList.map(sub => {
+                        // Find faculty for this subject
+                        const faculty = (() => {
+                            if (!assignedFaculty || assignedFaculty.length === 0) {
+                                console.log('[SemesterNotes] No faculty available for matching');
+                                return null;
+                            }
+
+                            const subjectName = String(sub.name || '').trim().toUpperCase();
+                            const subjectCode = String(sub.code || '').trim().toUpperCase();
+
+                            console.log(`[SemesterNotes] Looking for faculty for subject:`, {
+                                subjectName,
+                                subjectCode,
+                                availableFaculty: assignedFaculty.length
+                            });
+
+                            for (const fac of assignedFaculty) {
+                                const matchingAssignment = (fac.assignments || []).find(assignment => {
+                                    const assSubject = String(assignment.subject || '').trim().toUpperCase();
+                                    const matches = assSubject === subjectName ||
+                                        assSubject === subjectCode ||
+                                        subjectName.includes(assSubject) ||
+                                        assSubject.includes(subjectName);
+
+                                    if (matches) {
+                                        console.log(`[SemesterNotes] ✅ MATCH FOUND for "${sub.name}":`, {
+                                            facultyName: fac.name,
+                                            assignmentSubject: assignment.subject
+                                        });
+                                    }
+
+                                    return matches;
+                                });
+
+                                if (matchingAssignment) {
+                                    return fac.name || fac.facultyName || 'Faculty';
+                                }
+                            }
+
+                            console.log(`[SemesterNotes] ❌ No faculty match for "${sub.name}"`);
+                            return null;
+                        })();
+
+                        return (
+                            <button
+                                key={sub.code}
+                                onClick={() => setSelectedSubject(sub.code)}
+                                className={`subject-btn ${selectedSubject === sub.code ? 'active' : ''}`}
+                            >
+                                <div className="subject-btn-content">
+                                    <div style={{ fontWeight: 700 }}>{sub.name}</div>
+                                    {faculty && (
+                                        <div style={{
+                                            fontSize: '0.75rem',
+                                            opacity: 0.8,
+                                            marginTop: '0.25rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.3rem'
+                                        }}>
+                                            <span>👤</span>
+                                            <span>Prof. {faculty}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
                 <button onClick={() => setSelectedSubject('General')} className="general-notes-btn">
                     <FaStickyNote /> General Notes
@@ -212,7 +274,7 @@ const SemesterNotes = ({ semester, studentData, enrolledSubjects = [], serverMat
                         {loading && <div className="jm-loading-spinner"></div>}
                     </div>
                     <div className="jm-actions">
-                        <button onClick={fetchNotes} className="admin-btn admin-btn-outline" style={{ padding: '0.75rem', borderRadius: '8px' }} title="Sync Notes"><FaSync /></button>
+                        <button onClick={() => { fetchNotes(); if (onRefresh) onRefresh(); }} className="admin-btn admin-btn-outline" style={{ padding: '0.75rem', borderRadius: '8px' }} title="Sync Notes & Subjects"><FaSync /></button>
                         <button onClick={() => setShowForm(true)} className="admin-btn admin-btn-primary" style={{ padding: '0.75rem 1.5rem', gap: '0.5rem' }}><FaPlus /> Add Note</button>
                     </div>
                 </div>
@@ -263,9 +325,13 @@ const SemesterNotes = ({ semester, studentData, enrolledSubjects = [], serverMat
                             <p>Loading your journal...</p>
                         </div>
                     ) : filteredNotes.length === 0 ? (
-                        <div className="notes-empty">
-                            <div className="empty-emoji">📝</div>
-                            <p>No notes for this subject yet. Start by adding one!</p>
+                        <div style={{ marginTop: '2rem' }}>
+                            <ProfessionalEmptyState
+                                title="JOURNAL IS EMPTY"
+                                description={`No personal notes found for ${currentSubjectName}. Capture your learning insights to build your academic repository.`}
+                                icon={<FaPencilAlt />}
+                                theme="sentinel"
+                            />
                         </div>
                     ) : (
                         <div className="notes-grid">

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FaCreditCard, FaHistory, FaCheckCircle, FaExclamationTriangle, FaReceipt, FaUniversity } from 'react-icons/fa';
 import { apiGet, apiPost } from '../../../utils/apiClient';
 import './CollegeFees.css';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 
 const CollegeFees = ({ userData }) => {
     const [feeData, setFeeData] = useState(null);
@@ -189,7 +190,12 @@ const CollegeFees = ({ userData }) => {
                                 </div>
                             ))
                         ) : (
-                            <p className="no-data">No transactions found.</p>
+                            <ProfessionalEmptyState
+                                title="NO SETTLEMENTS"
+                                description="Your financial history is currently empty. Any payments made towards your college fees will appear here."
+                                icon={<FaHistory />}
+                                theme="info"
+                            />
                         )}
                     </div>
                 </div>

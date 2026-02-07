@@ -98,17 +98,30 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
           }
         }
       });
-    } catch (e) {
-      console.error("❌ FacultyDashboard: Sync Failed", e);
+    } finally {
+      setInitialLoad(false);
     }
   };
 
   useEffect(() => {
+    // 🚩 PURGE LEGACY LOCAL DATA
+    const keysToPurge = [
+      'adminStudents', 'adminFaculty', 'courses', 'adminMessages',
+      'adminTodos', 'localStudents', 'localFaculty', 'courseMaterials',
+      'teachingAssignments', 'curriculumData'
+    ];
+    keysToPurge.forEach(key => {
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+        console.log(`🧹 Faculty Node: Purged legacy local key: ${key}`);
+      }
+    });
+
     refreshAll();
-    const timer = setTimeout(() => setInitialLoad(false), 800);
-    const interval = setInterval(refreshAll, 10000);
+    // const timer = setTimeout(() => setInitialLoad(false), 800);
+    const interval = setInterval(refreshAll, 15000);
     return () => {
-      clearTimeout(timer);
+      // clearTimeout(timer);
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,7 +130,18 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
   useEffect(() => {
     const unsub = sseClient.onUpdate((ev) => {
       if (!ev || !ev.resource) return;
-      if (['materials', 'students', 'messages', 'faculty', 'exams', 'attendance', 'marks', 'schedule'].includes(ev.resource)) {
+
+      // Optimistic Deletes
+      if (ev.action === 'delete' && ev.id) {
+        if (ev.resource === 'materials') {
+          setMaterialsList(prev => prev.filter(m => (m._id !== ev.id) && (m.id !== ev.id)));
+        } else if (ev.resource === 'messages') {
+          setMessages(prev => prev.filter(m => (m._id !== ev.id) && (m.id !== ev.id)));
+        }
+        return;
+      }
+
+      if (['materials', 'students', 'messages', 'faculty', 'exams', 'attendance', 'marks', 'schedule', 'assignments', 'curriculum', 'transmission', 'exam-monitor'].includes(ev.resource)) {
         refreshAll();
       }
     });
@@ -129,9 +153,16 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
     const grouped = {};
     const assignments = currentFaculty.assignments || [];
     assignments.forEach(assign => {
-      const key = `${assign.year}-${assign.subject}`;
+      // Group by Year, Subject, and Branch to keep contexts distinct
+      const key = `${assign.year}-${assign.subject}-${assign.branch || 'All'}`;
       if (!grouped[key]) {
-        grouped[key] = { id: key, year: assign.year, subject: assign.subject, sections: new Set() };
+        grouped[key] = {
+          id: key,
+          year: assign.year,
+          subject: assign.subject,
+          branch: assign.branch || 'All',
+          sections: new Set()
+        };
       }
       grouped[key].sections.add(assign.section);
     });
@@ -152,22 +183,26 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
       const url = m;
       if (!url || url === '#') return '#';
       if (url.startsWith('http') || url.startsWith('https') || url.startsWith('blob:') || url.startsWith('data:')) return url;
-      return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+      const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+      return `${API_URL.replace(/\/$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
     }
     // If it's an object, look for fileUrl/url
     const rawUrl = m.fileUrl || m.url || '#';
     if (!rawUrl || rawUrl === '#') return '#';
     if (rawUrl.startsWith('http') || rawUrl.startsWith('https') || rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) return rawUrl;
-    return `http://localhost:5000${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+    const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+    return `${API_URL.replace(/\/$/, '')}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
   };
 
   const handleDeleteNode = async (id) => {
     if (!window.confirm("Are you sure you want to delete this file?")) return;
     try {
       await apiDelete(`/api/materials/${id}`);
-      refreshAll();
+      alert("File deleted successfully");
     } catch (err) {
       alert("Error: " + err.message);
+    } finally {
+      refreshAll();
     }
   };
 
@@ -175,10 +210,10 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
     e.preventDefault();
     const formData = new FormData(e.target);
     const message = formData.get('message');
-    const targetClass = formData.get('targetClass');
+    const targetClassId = formData.get('targetClass');
 
-    const contextToUse = targetClass ?
-      myClasses.find(c => `${c.year}-${c.subject}` === targetClass) :
+    const contextToUse = targetClassId ?
+      myClasses.find(c => c.id === targetClassId) :
       (activeContext || myClasses[0]);
 
     if (!message) return;
@@ -189,6 +224,7 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
         message,
         year: contextToUse.year,
         sections: contextToUse.sections,
+        branch: contextToUse.branch,
         subject: contextToUse.subject,
         type: 'announcement'
       });
@@ -199,6 +235,13 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
       alert("Failed to send: " + err.message);
     }
   };
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (initialLoad) {
     return (
@@ -224,18 +267,19 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
   };
 
   return (
-    <div className={`faculty-dashboard-layout loaded ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
+    <div className={`faculty-dashboard-layout loaded ${mobileSidebarOpen ? 'mobile-open' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <button className="mobile-sidebar-toggle" onClick={() => setMobileSidebarOpen(true)}>☰</button>
       {mobileSidebarOpen && <div className="mobile-overlay" onClick={() => setMobileSidebarOpen(false)}></div>}
 
       <FacultySidebar
-        facultyData={facultyData}
+        facultyData={currentFaculty}
         view={view}
         setView={setView}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
         onLogout={handleLogout}
         onNavigate={() => setMobileSidebarOpen(false)}
+        getFileUrl={getFileUrl}
       />
 
       <div className="dashboard-content-area">
@@ -251,8 +295,8 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
           </div>
           <div className="header-right">
             <div className="header-time-box">
-              <span className="time-val">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              <span className="date-val">{new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+              <span className="time-val">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+              <span className="date-val">{currentTime.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
             </div>
           </div>
         </header>
@@ -269,6 +313,7 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
               getFileUrl={getFileUrl}
               setView={setView}
               openAiWithPrompt={openAiWithPrompt}
+              currentTime={currentTime}
             />
           )}
 
@@ -286,15 +331,14 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                     <select
                       className="f-context-select"
                       onChange={(e) => {
-                        const [yr, subj] = e.target.value.split('-');
-                        const cls = myClasses.find(c => String(c.year) === yr && c.subject === subj);
-                        if (cls) setActiveContext(cls);
+                        const targetCls = myClasses.find(c => c.id === e.target.value);
+                        if (targetCls) setActiveContext(targetCls);
                       }}
-                      value={ctx ? `${ctx.year}-${ctx.subject}` : ''}
+                      value={ctx ? ctx.id : ''}
                     >
                       {myClasses.map(c => (
-                        <option key={`${c.year}-${c.subject}`} value={`${c.year}-${c.subject}`}>
-                          {c.subject} (YEAR {c.year})
+                        <option key={c.id} value={c.id}>
+                          {c.subject} (Yr {c.year} • {c.branch})
                         </option>
                       ))}
                     </select>
@@ -304,13 +348,23 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                 <div className="f-upload-stage animate-slide-up">
                   <MaterialManager
                     selectedSubject={`${ctx.subject} - Year ${ctx.year}`}
+                    selectedBranch={ctx.branch}
                     selectedSections={ctx.sections}
                     onUploadSuccess={refreshAll}
                   />
                 </div>
 
                 <div className="f-materials-grid">
-                  {materialsList.filter(m => String(m.year) === String(ctx.year) && m.subject.includes(ctx.subject)).map((node, index) => (
+                  {materialsList.filter(m => {
+                    const mYear = String(m.year || '').toUpperCase();
+                    const ctxYear = String(ctx.year || '').toUpperCase();
+                    const yearMatch = mYear === ctxYear || mYear === 'ALL';
+                    const subjectMatch = String(m.subject || '').includes(ctx.subject);
+                    const mBranch = String(m.branch || 'All').toUpperCase();
+                    const ctxBranch = String(ctx.branch || 'All').toUpperCase();
+                    const branchMatch = mBranch === 'ALL' || ctxBranch === 'ALL' || mBranch === ctxBranch;
+                    return yearMatch && subjectMatch && branchMatch;
+                  }).map((node, index) => (
                     <div key={node.id || node._id} className="f-node-card animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
                       <div className="f-node-head">
                         <div className="f-node-type-icon">
@@ -344,20 +398,19 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                 <header className="f-view-header">
                   <div>
                     <h2>ATTENDANCE <span>ROSTER</span></h2>
-                    <p className="nexus-subtitle">Daily tracking for {ctx.subject}</p>
+                    <p className="nexus-subtitle">Daily tracking for {ctx.subject} ({ctx.branch})</p>
                   </div>
                   <select
                     className="f-context-select"
                     onChange={(e) => {
-                      const [yr, subj] = e.target.value.split('-');
-                      const cls = myClasses.find(c => String(c.year) === yr && c.subject === subj);
-                      if (cls) setActiveContext(cls);
+                      const targetCls = myClasses.find(c => c.id === e.target.value);
+                      if (targetCls) setActiveContext(targetCls);
                     }}
-                    value={ctx ? `${ctx.year}-${ctx.subject}` : ''}
+                    value={ctx ? ctx.id : ''}
                   >
                     {myClasses.map(c => (
-                      <option key={`${c.year}-${c.subject}`} value={`${c.year}-${c.subject}`}>
-                        {c.subject} (YEAR {c.year})
+                      <option key={c.id} value={c.id}>
+                        {c.subject} (Yr {c.year} • {c.branch})
                       </option>
                     ))}
                   </select>
@@ -366,6 +419,7 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                   facultyId={facultyData.facultyId}
                   subject={ctx.subject}
                   year={ctx.year}
+                  branch={ctx.branch}
                   sections={ctx.sections}
                   facultyData={currentFaculty}
                   openAiWithPrompt={openAiWithPrompt}
@@ -381,20 +435,19 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                 <header className="f-view-header">
                   <div>
                     <h2>EXAM <span>MANAGEMENT</span></h2>
-                    <p className="nexus-subtitle">Manage assessments for {ctx.subject}</p>
+                    <p className="nexus-subtitle">Manage assessments for {ctx.subject} ({ctx.branch})</p>
                   </div>
                   <select
                     className="f-context-select"
                     onChange={(e) => {
-                      const [yr, subj] = e.target.value.split('-');
-                      const cls = myClasses.find(c => String(c.year) === yr && c.subject === subj);
-                      if (cls) setActiveContext(cls);
+                      const targetCls = myClasses.find(c => c.id === e.target.value);
+                      if (targetCls) setActiveContext(targetCls);
                     }}
-                    value={ctx ? `${ctx.year}-${ctx.subject}` : ''}
+                    value={ctx ? ctx.id : ''}
                   >
                     {myClasses.map(c => (
-                      <option key={`${c.year}-${c.subject}`} value={`${c.year}-${c.subject}`}>
-                        {c.subject} (YEAR {c.year})
+                      <option key={c.id} value={c.id}>
+                        {c.subject} (Yr {c.year} • {c.branch})
                       </option>
                     ))}
                   </select>
@@ -404,7 +457,7 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                   year={ctx.year}
                   sections={ctx.sections}
                   facultyId={currentFaculty.facultyId}
-                  branch={currentFaculty.department}
+                  branch={ctx.branch || currentFaculty.department}
                   openAiWithPrompt={openAiWithPrompt}
                 />
               </div>
@@ -423,7 +476,7 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
           )}
           {view === 'settings' && <FacultySettings facultyData={currentFaculty} onProfileUpdate={setCurrentFaculty} openAiWithPrompt={openAiWithPrompt} />}
           {view === 'messages' && <FacultyMessages messages={messages} openAiWithPrompt={openAiWithPrompt} />}
-          {view === 'students' && <FacultyStudents studentsList={studentsList} openAiWithPrompt={openAiWithPrompt} />}
+          {view === 'students' && <FacultyStudents studentsList={studentsList} openAiWithPrompt={openAiWithPrompt} getFileUrl={getFileUrl} />}
 
           {view === 'broadcast' && (
             <div className="nexus-hub-viewport" style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -437,8 +490,8 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                     <label className="f-form-label">Target Course Pipeline</label>
                     <select name="targetClass" className="f-form-select">
                       {myClasses.map(c => (
-                        <option key={`${c.year}-${c.subject}`} value={`${c.year}-${c.subject}`}>
-                          {c.subject} (YEAR {c.year})
+                        <option key={c.id} value={c.id}>
+                          {c.subject} (Yr {c.year} • {c.branch})
                         </option>
                       ))}
                     </select>
@@ -509,9 +562,8 @@ const FacultyDashboard = ({ facultyData, setIsAuthenticated, setIsFaculty }) => 
                 });
 
                 if (!matched) {
-                  console.log('AI requested unknown path:', path);
                 }
-              }} initialMessage={aiInitialPrompt} />
+              }} initialMessage={aiInitialPrompt} forcedRole="faculty" />
             </div>
           </div>
         </div>

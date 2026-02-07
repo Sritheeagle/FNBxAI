@@ -15,7 +15,7 @@ const StudentLabsSchedule = ({ studentData }) => {
         const fetchLabSchedule = async () => {
             setLoading(true);
             try {
-                const response = await apiGet(`/api/labs/schedule?year=${studentData.year}&section=${studentData.section}&branch=${studentData.branch}`);
+                const response = await apiGet(`/api/labs/schedule?year=${String(studentData.year).replace(/[^0-9]/g, '')}&section=${String(studentData.section).replace(/Section\s*/i, '').trim()}&branch=${String(studentData.branch).trim()}`);
                 setLabSchedule(response || []);
             } catch (error) {
                 console.error('Lab Sync Failed:', error);

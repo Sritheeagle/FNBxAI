@@ -5,40 +5,28 @@ import './FacultyClassPulse.css';
 const FacultyClassPulse = ({ studentsCount = 0, materialsCount = 0 }) => {
     return (
         <div className="f-stats-grid">
-            <div className="f-stats-card">
-                <div className="f-stats-header">
-                    <div>
-                        <div className="f-stats-label">ASSIGNED STUDENTS</div>
-                        <div className="f-stats-value">{studentsCount}</div>
-                    </div>
-                    <div className="f-stats-icon-box" style={{ background: '#e0f2fe', color: '#0369a1' }}>
-                        <FaGraduationCap />
-                    </div>
+            <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s', background: 'white' }}>
+                <div className="summary-icon-box" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--nexus-primary)' }}>
+                    <FaGraduationCap />
                 </div>
+                <div className="value">{studentsCount}</div>
+                <div className="label">ASSIGNED STUDENTS</div>
             </div>
 
-            <div className="f-stats-card">
-                <div className="f-stats-header">
-                    <div>
-                        <div className="f-stats-label">ACTIVE DEPLOYMENTS</div>
-                        <div className="f-stats-value">{materialsCount}</div>
-                    </div>
-                    <div className="f-stats-icon-box" style={{ background: '#fdfce7', color: '#a16207' }}>
-                        <FaBookReader />
-                    </div>
+            <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1.5s', background: 'white' }}>
+                <div className="summary-icon-box" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+                    <FaBookReader />
                 </div>
+                <div className="value">{materialsCount}</div>
+                <div className="label">ACTIVE DEPLOYMENTS</div>
             </div>
 
-            <div className="f-stats-card">
-                <div className="f-stats-header">
-                    <div>
-                        <div className="f-stats-label">POSITIVE FEEDBACK</div>
-                        <div className="f-stats-value">94%</div>
-                    </div>
-                    <div className="f-stats-icon-box" style={{ background: '#f0fdf4', color: '#15803d' }}>
-                        <FaUserCheck />
-                    </div>
+            <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-3s', background: 'white' }}>
+                <div className="summary-icon-box" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+                    <FaUserCheck />
                 </div>
+                <div className="value">94%</div>
+                <div className="label">POSITIVE FEEDBACK</div>
             </div>
         </div>
     );

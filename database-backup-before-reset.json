@@ -1,0 +1,94 @@
+{
+  "faculty": [
+    {
+      "_id": "6986fcd00a1d168abe1dda17",
+      "facultyId": "FAC001",
+      "name": "Dr. John Smith",
+      "email": "john.smith@college.edu",
+      "password": "password123",
+      "department": "CSE",
+      "assignments": [
+        {
+          "year": "1",
+          "section": "A",
+          "subject": "Python Programming",
+          "branch": "CSE",
+          "_id": "6986fcd00a1d168abe1dda18"
+        },
+        {
+          "year": "1",
+          "section": "A",
+          "subject": "Data Structures",
+          "branch": "CSE",
+          "_id": "6986fcd00a1d168abe1dda19"
+        }
+      ],
+      "subjects": [],
+      "createdAt": "2026-02-07T08:50:24.762Z",
+      "__v": 0
+    },
+    {
+      "_id": "6986fcd00a1d168abe1dda1c",
+      "facultyId": "FAC002",
+      "name": "Dr. Sarah Johnson",
+      "email": "sarah.johnson@college.edu",
+      "password": "password123",
+      "department": "CSE",
+      "assignments": [
+        {
+          "year": "1",
+          "section": "A",
+          "subject": "Web Technologies",
+          "branch": "CSE",
+          "_id": "6986fcd00a1d168abe1dda1d"
+        }
+      ],
+      "subjects": [],
+      "createdAt": "2026-02-07T08:50:24.820Z",
+      "__v": 0
+    }
+  ],
+  "courses": [
+    {
+      "_id": "6986fcd00a1d168abe1dda21",
+      "name": "Python Programming",
+      "code": "PY-101",
+      "credits": 3,
+      "year": "1",
+      "semester": "1",
+      "branch": "CSE",
+      "section": "All",
+      "isStatic": false,
+      "createdAt": "2026-02-07T08:50:24.871Z",
+      "__v": 0
+    },
+    {
+      "_id": "6986fcd00a1d168abe1dda23",
+      "name": "Data Structures",
+      "code": "DS-102",
+      "credits": 3,
+      "year": "1",
+      "semester": "1",
+      "branch": "CSE",
+      "section": "All",
+      "isStatic": false,
+      "createdAt": "2026-02-07T08:50:24.912Z",
+      "__v": 0
+    },
+    {
+      "_id": "6986fcd00a1d168abe1dda25",
+      "name": "Web Technologies",
+      "code": "WT-103",
+      "credits": 3,
+      "year": "1",
+      "semester": "2",
+      "branch": "CSE",
+      "section": "All",
+      "isStatic": false,
+      "createdAt": "2026-02-07T08:50:24.946Z",
+      "__v": 0
+    }
+  ],
+  "schedule": [],
+  "timestamp": "2026-02-07T08:55:30.937Z"
+}

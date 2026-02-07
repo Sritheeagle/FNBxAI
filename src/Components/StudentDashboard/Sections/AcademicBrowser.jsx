@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { FaDownload, FaArrowLeft, FaChevronRight, FaRegFolder, FaRegFileAlt, FaVideo, FaLightbulb, FaFileAlt, FaCube, FaSync, FaFolderOpen } from 'react-icons/fa';
 import './AcademicBrowser.css';
-import { apiPost } from '../../../utils/apiClient';
+import { apiPost, apiGet } from '../../../utils/apiClient';
+import sseClient from '../../../utils/sseClient';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 
 /**
  * PREMIUM NEXUS ACADEMIC BROWSER
@@ -9,6 +11,95 @@ import { apiPost } from '../../../utils/apiClient';
  */
 const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, setView, branch, onRefresh, assignedFaculty = [], openAiWithDoc }) => {
     const [navPath, setNavPath] = useState([]);
+    const [serverCurriculum, setServerCurriculum] = useState(null);
+
+    // Fetch dynamic curriculum on subject view
+    React.useEffect(() => {
+        const current = navPath.length > 0 ? navPath[navPath.length - 1] : null;
+        if (current && current.type === 'subject') {
+            setServerCurriculum(null); // Reset
+            apiGet(`/api/curriculum?subject=${encodeURIComponent(current.name)}`)
+                .then(data => {
+                    if (data && data.units && data.units.length > 0) {
+                        // Transform to match browswer structure
+                        // Browser expects: { id, name, units: [] } (Modules)
+                        // Server provides: { name: 'UNIT 1', subsections: [] }
+
+                        // We map Server Units -> Browser Modules (or Units)
+                        // Let's assume Server Units ARE the top level containers inside a subject
+                        const mapped = data.units.map((u, i) => ({
+                            id: `server-${i}`,
+                            name: u.name,
+                            units: u.subsections ? u.subsections.map(sub => ({
+                                id: sub.id,
+                                title: sub.title,
+                                content: sub.content
+                            })) : []
+                        }));
+                        setServerCurriculum(mapped);
+                    }
+                })
+                .catch(e => console.error(e));
+        } else {
+            setServerCurriculum(null);
+        }
+    }, [navPath]);
+
+    // Real-time updates
+    React.useEffect(() => {
+        const unsub = sseClient.onUpdate((ev) => {
+            const current = navPath.length > 0 ? navPath[navPath.length - 1] : null;
+            if (ev && ev.resource === 'curriculum' && current && current.type === 'subject') {
+                apiGet(`/api/curriculum?subject=${encodeURIComponent(current.name)}`)
+                    .then(data => {
+                        if (data && data.units && data.units.length > 0) {
+                            const mapped = data.units.map((u, i) => ({
+                                id: `server-${i}`,
+                                name: u.name,
+                                units: u.subsections ? u.subsections.map(sub => ({
+                                    id: sub.id,
+                                    title: sub.title,
+                                    content: sub.content
+                                })) : []
+                            }));
+                            setServerCurriculum(mapped);
+                        }
+                    })
+                    .catch(e => console.error(e));
+            }
+        });
+        return unsub;
+    }, [navPath]);
+
+    // Debug: Log yearData changes to track subject updates
+    React.useEffect(() => {
+        const totalSubjects = (yearData.semesters || []).reduce((sum, sem) =>
+            sum + (sem.subjects || []).length, 0
+        );
+        console.log('[AcademicBrowser] YearData updated:', {
+            year: selectedYear,
+            semesters: (yearData.semesters || []).length,
+            totalSubjects,
+            subjects: (yearData.semesters || []).flatMap(s => s.subjects || []).map(sub => sub.name)
+        });
+    }, [yearData, selectedYear]);
+
+    // Debug: Log assignedFaculty changes
+    React.useEffect(() => {
+        console.log('[AcademicBrowser] assignedFaculty prop received:', {
+            isArray: Array.isArray(assignedFaculty),
+            length: (assignedFaculty || []).length,
+            faculty: (assignedFaculty || []).map(f => ({
+                name: f.name,
+                assignmentCount: (f.assignments || []).length,
+                sampleAssignment: f.assignments?.[0] ? {
+                    subject: f.assignments[0].subject,
+                    year: f.assignments[0].year,
+                    section: f.assignments[0].section
+                } : null
+            }))
+        });
+    }, [assignedFaculty]);
 
     const currentViewData = useMemo(() => {
         if (navPath.length === 0) {
@@ -17,6 +108,12 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
         }
         return navPath[navPath.length - 1];
     }, [navPath, selectedYear, yearData]);
+
+    // ... (rest of code) ...
+
+    // Inside renderContent for 'subject'
+    // const modulesToShow = serverCurriculum || current.data || [];
+
 
     const handleNavigateTo = (item, type, data) => {
         setNavPath([...navPath, { type, id: item.id || item, name: item.name || `Semester ${item}`, data }]);
@@ -34,13 +131,14 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
         setNavPath([]);
     };
 
-    const renderEmpty = (msg) => (
-        <div className="nexus-empty-state">
-            <div className="empty-state-icon">
-                <FaFolderOpen style={{ fontSize: '3rem', opacity: 0.2, color: 'var(--nexus-text-muted)' }} />
-            </div>
-            <h3 className="empty-state-title">No Content Found</h3>
-            <p className="empty-state-msg">{msg}</p>
+    const renderEmpty = (title, msg, theme = "info") => (
+        <div style={{ marginTop: '2rem', width: '100%' }}>
+            <ProfessionalEmptyState
+                title={title.toUpperCase()}
+                description={msg}
+                icon={<FaFolderOpen />}
+                theme={theme}
+            />
         </div>
     );
 
@@ -61,33 +159,103 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                             <FaChevronRight className="node-arrow" />
                         </div>
                     ))}
-                    {(!current.data || current.data.length === 0) && renderEmpty("No semesters configured for this year.")}
+                    {(!current.data || current.data.length === 0) && renderEmpty("Academic Repository Empty", "No semesters configured for this year.", "sentinel")}
                 </div>
             );
         }
 
         // Level: Semester (Subjects)
         if (current.type === 'semester') {
+            // Helper function to get faculty for a subject
+            const getFacultyForSubject = (subject) => {
+                if (!assignedFaculty || assignedFaculty.length === 0) {
+                    console.log(`[AcademicBrowser] No faculty available for matching`);
+                    return null;
+                }
+
+                const subjectName = String(subject.name || '').trim().toUpperCase();
+                const subjectCode = String(subject.code || '').trim().toUpperCase();
+
+                console.log(`[AcademicBrowser] Looking for faculty for subject:`, {
+                    subjectName,
+                    subjectCode,
+                    availableFaculty: assignedFaculty.length
+                });
+
+                // Find faculty with matching assignment
+                for (const faculty of assignedFaculty) {
+                    const matchingAssignment = (faculty.assignments || []).find(assignment => {
+                        const assSubject = String(assignment.subject || '').trim().toUpperCase();
+                        const matches = assSubject === subjectName ||
+                            assSubject === subjectCode ||
+                            subjectName.includes(assSubject) ||
+                            assSubject.includes(subjectName);
+
+                        if (matches) {
+                            console.log(`[AcademicBrowser] ✅ MATCH FOUND for "${subject.name}":`, {
+                                facultyName: faculty.name,
+                                assignmentSubject: assignment.subject,
+                                matchType: assSubject === subjectName ? 'exact name' :
+                                    assSubject === subjectCode ? 'exact code' :
+                                        subjectName.includes(assSubject) ? 'name includes assignment' :
+                                            'assignment includes name'
+                            });
+                        }
+
+                        return matches;
+                    });
+
+                    if (matchingAssignment) {
+                        return {
+                            name: faculty.name || faculty.facultyName || 'Faculty',
+                            email: faculty.email,
+                            id: faculty._id || faculty.facultyId
+                        };
+                    }
+                }
+
+                console.log(`[AcademicBrowser] ❌ No faculty match for "${subject.name}"`);
+                return null;
+            };
+
             return (
                 <div className="nexus-grid-layout">
-                    {(current.data || []).map(sub => (
-                        <div key={sub.id} className="nexus-node-card subject-node" onClick={() => handleNavigateTo(sub, 'subject', sub.modules)}>
-                            <div className="nexus-node-icon">📘</div>
-                            <div className="nexus-node-info">
-                                <h3>{sub.name}</h3>
-                                <code className="code-badge">{sub.code}</code>
+                    {(current.data || []).map(sub => {
+                        const faculty = getFacultyForSubject(sub);
+
+                        return (
+                            <div key={sub.id} className="nexus-node-card subject-node" onClick={() => handleNavigateTo(sub, 'subject', sub.modules)}>
+                                <div className="nexus-node-icon">📘</div>
+                                <div className="nexus-node-info">
+                                    <h3>{sub.name}</h3>
+                                    <code className="code-badge">{sub.code}</code>
+                                    {faculty && (
+                                        <div style={{
+                                            marginTop: '0.5rem',
+                                            fontSize: '0.85rem',
+                                            color: '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.3rem'
+                                        }}>
+                                            <span style={{ color: '#10b981' }}>👤</span>
+                                            <span style={{ fontWeight: 600 }}>Prof. {faculty.name}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <FaChevronRight className="node-arrow" />
                             </div>
-                            <FaChevronRight className="node-arrow" />
-                        </div>
-                    ))}
-                    {(!current.data || current.data.length === 0) && renderEmpty("No subjects found in this semester.")}
+                        );
+                    })}
+                    {(!current.data || current.data.length === 0) && renderEmpty("No Subjects Found", "No subjects found in this semester.", "info")}
                 </div>
             );
         }
 
         // Level: Subject (Modules)
         if (current.type === 'subject') {
-            const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+            const modulesList = serverCurriculum || current.data || [];
+            const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
             const apiMaterials = serverMaterials.map(m => {
                 const rawUrl = m.fileUrl || m.url || '#';
                 return { ...m, finalUrl: rawUrl.startsWith('http') ? rawUrl : `${API_BASE}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}` };
@@ -106,6 +274,10 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                 const sections = m.section ? (Array.isArray(m.section) ? m.section : String(m.section).split(',').map(s => s.trim())) : [];
                 const matchSection = !m.section || sections.length === 0 || sections.includes('All') || sections.includes(userData.section) || sections.includes(String(userData.section));
 
+                // Branch filtering with comma-separated support
+                const branches = m.branch ? (Array.isArray(m.branch) ? m.branch : String(m.branch).split(/[,\s]+/).map(b => b.trim().toUpperCase())) : [];
+                const matchBranch = !m.branch || branches.length === 0 || branches.includes('ALL') || branches.includes(String(userData.branch || branch).toUpperCase());
+
                 // Flexible subject/course matching: support subject name, subject code, or linked course
                 const subj = m.subject ? String(m.subject).trim().toLowerCase() : '';
                 const nodeName = String(current.name || '').trim().toLowerCase();
@@ -121,12 +293,13 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                     );
 
                 const uploaderName = m.uploadedBy?.name || m.uploadedBy || '';
+                const isAdmin = uploaderName.toLowerCase().includes('admin') || m.uploaderRole === 'admin';
                 const isAssignedFaculty = (assignedFaculty || []).some(f =>
                     (f.name && uploaderName && f.name.toLowerCase().includes(uploaderName.toLowerCase())) ||
                     (f.facultyId && m.uploadedBy === f.facultyId)
                 );
 
-                return matchYear && matchSemester && matchSection && Boolean(matchSubject) && (m.section !== 'All' ? true : isAssignedFaculty);
+                return matchYear && matchSemester && matchSection && matchBranch && Boolean(matchSubject) && (m.section !== 'All' ? true : (isAssignedFaculty || isAdmin));
             });
 
             const notes = subjectResources.filter(m => m.type === 'notes');
@@ -137,7 +310,7 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                 <div className="nexus-subject-view">
                     <h3 className="section-title">Course Modules</h3>
                     <div className="nexus-list">
-                        {(current.data || []).map(mod => (
+                        {modulesList.map(mod => (
                             <div key={mod.id} className="nexus-list-item" onClick={() => handleNavigateTo(mod, 'module', mod.units)}>
                                 <FaRegFolder />
                                 <div className="item-label">{mod.name}</div>
@@ -145,7 +318,7 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                                 <FaChevronRight className="node-arrow-static" />
                             </div>
                         ))}
-                        {(!current.data || current.data.length === 0) && <p className="text-muted">No modules defined.</p>}
+                        {modulesList.length === 0 && <p className="text-muted">No modules defined.</p>}
                     </div>
 
                     {(notes.length > 0 || videos.length > 0 || papers.length > 0) && (
@@ -269,7 +442,7 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
         // Level: Resources
         if (current.type === 'topic') {
             const staticResources = current.data || {};
-            const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+            const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
             const apiMaterials = serverMaterials.map(m => {
                 const rawUrl = m.fileUrl || m.url || '#';
                 return { ...m, finalUrl: rawUrl.startsWith('http') ? rawUrl : `${API_BASE}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}` };
@@ -332,7 +505,8 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                         <h4>📄 LECTURE NOTES</h4>
                         <div className="res-row">
                             {notes.map((n, i) => (
-                                <div key={i} className="res-card-v2">
+                                <div key={i} className="res-card-v2 sentinel-floating" style={{ animationDelay: `${i * -0.5}s` }}>
+                                    <div className="sentinel-scanner"></div>
                                     <div className="res-info">
                                         <FaRegFileAlt />
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -351,7 +525,12 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                                     </div>
                                 </div>
                             ))}
-                            {notes.length === 0 && <p className="res-empty-hint">No notes found for this topic.</p>}
+                            {notes.length === 0 && (
+                                <div className="res-empty-hint sentinel-glass">
+                                    <FaRegFileAlt style={{ fontSize: '2rem', opacity: 0.2, marginBottom: '0.5rem' }} />
+                                    <span>No lecture notes are currently deployed for this tactical unit.</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                     {videos.length > 0 && (
@@ -359,7 +538,8 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
                             <h4>🎥 VIDEO CONCEPTS</h4>
                             <div className="res-row">
                                 {videos.map((v, i) => (
-                                    <div key={i} className="res-card-v2 vid">
+                                    <div key={i} className="res-card-v2 vid sentinel-floating" style={{ animationDelay: `${i * -0.6}s` }}>
+                                        <div className="sentinel-scanner"></div>
                                         <div className="res-info" style={{ cursor: 'pointer' }} onClick={() => window.open(v.finalUrl, '_blank')}>
                                             <FaVideo className="text-warning" />
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -435,7 +615,7 @@ const AcademicBrowser = ({ yearData, selectedYear, serverMaterials, userData, se
             );
         }
 
-        return renderEmpty("Layer not found.");
+        return renderEmpty("Access Denied", "Layer not found or restricted.", "error");
     };
 
     return (

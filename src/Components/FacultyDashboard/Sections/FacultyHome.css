@@ -6,6 +6,15 @@
     grid-auto-rows: minmax(160px, auto);
     gap: 1.5rem;
     padding-bottom: 3rem;
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
+}
+
+.faculty-bento-grid::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari */
 }
 
 .f-bento-card {

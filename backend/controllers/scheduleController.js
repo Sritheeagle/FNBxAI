@@ -3,16 +3,55 @@ const sse = require('../sse');
 
 exports.getSchedules = async (req, res) => {
     try {
-        const { year, section, branch, day, faculty } = req.query;
+        const { year, section, branch, day, faculty, type } = req.query;
         let query = {};
-        if (year) query.year = parseInt(year);
-        if (section) query.section = section;
-        if (branch) query.branch = branch;
-        if (day) query.day = day;
+        if (year) {
+            const sYear = String(year).replace(/[^0-9]/g, '');
+            query.year = { $in: [sYear, parseInt(sYear)] };
+        }
+        if (section) {
+            const sSec = String(section).replace(/Section\s*/i, '').trim().toUpperCase();
+            query.section = { $regex: new RegExp(`(^|[\\s,])(${sSec}|All)($|[\\s,])`, 'i') };
+        }
+        if (branch) query.branch = { $regex: new RegExp(`(^|[\\s,])(${branch}|All)($|[\\s,])`, 'i') };
+        if (day) query.day = { $regex: new RegExp(`^${day}$`, 'i') };
         if (faculty) query.faculty = { $regex: faculty, $options: 'i' };
+        if (type) query.type = type;
 
         const schedules = await Schedule.find(query).sort({ day: 1, time: 1 });
         res.json(schedules);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.getLabsSchedule = async (req, res) => {
+    try {
+        const { year, section, branch } = req.query;
+        let query = { type: 'Lab' };
+
+        if (year) {
+            const sYear = String(year).replace(/[^0-9]/g, '');
+            query.year = { $in: [sYear, parseInt(sYear)] };
+        }
+        if (section) {
+            const sSec = String(section).replace(/Section\s*/i, '').trim().toUpperCase();
+            query.section = { $regex: new RegExp(`(^|[\\s,])(${sSec}|All)($|[\\s,])`, 'i') };
+        }
+        if (branch) query.branch = { $regex: new RegExp(`(^|[\\s,])(${branch}|All)($|[\\s,])`, 'i') };
+
+        const schedules = await Schedule.find(query).sort({ day: 1, time: 1 });
+        // Map to expected format for frontend if needed
+        const formatted = schedules.map(s => ({
+            labName: s.subject,
+            faculty: s.faculty,
+            room: s.room || 'TBD',
+            day: s.day,
+            time: s.time,
+            batch: s.batch || 'All',
+            description: s.description
+        }));
+        res.json(formatted);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

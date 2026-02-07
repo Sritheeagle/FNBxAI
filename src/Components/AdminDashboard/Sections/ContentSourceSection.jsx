@@ -21,8 +21,9 @@ const ContentSourceSection = ({ contentSource, getFileUrl }) => {
 
             <div className="admin-grid">
                 {contentSource && contentSource.length > 0 ? (
-                    contentSource.map(subject => (
-                        <div key={subject.subject || 'unknown'} className="admin-card sentinel-animate" style={{ padding: '0', overflow: 'hidden' }}>
+                    contentSource.map((subject, idx) => (
+                        <div key={subject.subject || 'unknown'} className="admin-card sentinel-floating" style={{ padding: '0', animationDelay: `${idx * -2}s` }}>
+                            <div className="sentinel-scanner"></div>
                             <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid var(--admin-border)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--admin-secondary)', fontWeight: 950 }}>{subject.subject || 'Unassigned'}</h3>
                                 <span className="admin-badge primary">VERIFIED SOURCE</span>

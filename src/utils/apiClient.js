@@ -1,4 +1,3 @@
-// This is a placeholder replace to trigger read. I will read server.js next.
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
 const headersJson = { 'Content-Type': 'application/json' };
@@ -80,34 +79,60 @@ export async function apiPost(path, body) {
 }
 
 export async function apiPut(path, body) {
-    const res = await fetch(`${API_URL.replace(/\/$/, '')}${path}`, {
-        method: 'PUT',
-        headers: { ...headersJson, ...getAuthHeaders() },
-        body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-        const err = new Error(data.details || data.error || `PUT ${path} failed: ${res.status}`);
-        err.status = res.status;
-        err.details = data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 40000);
+
+    try {
+        const res = await fetch(`${API_URL.replace(/\/$/, '')}${path}`, {
+            method: 'PUT',
+            headers: { ...headersJson, ...getAuthHeaders() },
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const err = new Error(data.details || data.error || `PUT ${path} failed: ${res.status}`);
+            err.status = res.status;
+            err.details = data;
+            throw err;
+        }
+        return data;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.message.includes('Failed to fetch')) {
+            console.error(`❌ Network Error (PUT) at ${path}. Check if backend at ${API_URL} is running.`);
+        }
         throw err;
     }
-    return data;
 }
 
 export async function apiDelete(path) {
-    const res = await fetch(`${API_URL.replace(/\/$/, '')}${path}`, {
-        method: 'DELETE',
-        headers: { ...getAuthHeaders() }
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-        const err = new Error(data.details || data.error || `DELETE ${path} failed: ${res.status}`);
-        err.status = res.status;
-        err.details = data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 40000);
+
+    try {
+        const res = await fetch(`${API_URL.replace(/\/$/, '')}${path}`, {
+            method: 'DELETE',
+            headers: { ...getAuthHeaders() },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const err = new Error(data.details || data.error || `DELETE ${path} failed: ${res.status}`);
+            err.status = res.status;
+            err.details = data;
+            throw err;
+        }
+        return data;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.message.includes('Failed to fetch')) {
+            console.error(`❌ Network Error (DELETE) at ${path}. Check if backend at ${API_URL} is running.`);
+        }
         throw err;
     }
-    return data;
 }
 
 export async function apiUpload(path, formData, method = 'POST') {

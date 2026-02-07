@@ -43,9 +43,35 @@ MODEL_NAME = None
 
 class _FallbackLLM:
     async def ainvoke(self, messages):
-        pass
+        # Determine the role from the system message if possible
+        role = "student"
+        user_name = "User"
+        
+        for msg in messages:
+            if isinstance(msg, SystemMessage):
+                content = msg.content.lower()
+                if "admin" in content: role = "admin"
+                elif "faculty" in content: role = "faculty"
+                
+                if "commander" in content: user_name = "Commander"
+                elif "professor" in content: user_name = "Professor"
 
-if LLM_PROVIDER in ("openai", "gpt", "gpt4", "gpt-4"):
+        class _R:
+            def __init__(self, content):
+                self.content = content
+
+        if role == "admin":
+            res = f"**Sentinel Prime: [DEMO MODE ACTIVE]**\n\nCommand accepted, {user_name}. However, my neural uplink to Gemini-1.5 is currently offline (Invalid API Key). Under Protocol 7-Beta, I am operating in local simulation mode.\n\n**System Diagnostics:**\n- Security: Operational\n- Knowledge Base: Cached\n- LLM Status: Standby\n\nPlease update the `GOOGLE_API_KEY` in my configuration to restore full cognitive functions."
+        elif role == "faculty":
+            res = f"**Academic Core: [DEMO MODE]**\n\nProfessor, I can assist with syllabus planning and student records locally. Note that my advanced generative features are currently paused while we verify the AI gateway key.\n\nHow can I help you manage your classes today?"
+        else:
+            res = f"**Study Buddy: [DEMO MODE]**\n\nHey {user_name}! 🚀 I'm here to help, though my 'big brain' is currently in low-power mode because I need a valid API key to connect to the cloud. \n\nI can still help you navigate the dashboard or talk about what we've learned so far! Just ask me anything about the University."
+            
+        return _R(res)
+
+llm = _FallbackLLM() # Default to fallback, override if successful
+
+if LLM_PROVIDER in ("openai", "gpt", "gpt-4", "gpt-3.5-turbo", "gpt-4o"):
     try:
         MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4")
         BASE_URL = os.getenv("OPENAI_BASE_URL")
@@ -142,7 +168,8 @@ elif LLM_PROVIDER in ("google", "gemini", "google_gen", "gemini-pro"):
         print("   -> Please install it with: pip install langchain-google-genai")
     except Exception as e:
         print(f"[!] Google Gemini initialization failed: {e}")
-        print("   -> Ensure `langchain-google-genai` is installed and `GOOGLE_API_KEY` is set in .env.")
+        print("   -> Switching to Sentinel Demo Mode (Fallback).")
+        llm = _FallbackLLM()
 
 elif LLM_PROVIDER in ("anthropic", "claude"):
     try:
@@ -581,9 +608,8 @@ async def chat(request: ChatRequest):
             
             while True:
                 try:
-                    # Timeout set to 10s for fast responses
                     ai_response = await asyncio.wait_for(
-                        llm.ainvoke(messages), timeout=10
+                        llm.ainvoke(messages), timeout=15
                     )
                     response_text = ai_response.content.strip()
                     break # Success

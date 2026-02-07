@@ -148,8 +148,16 @@ exports.registerStudent = async (req, res) => {
 
         const folderPath = createUserFolder('student', sid);
 
+        // Normalize Year and Section
+        const cleanYear = String(year || '1').replace(/[^0-9]/g, '');
+        const cleanSection = String(section || 'A').replace(/Section\s*/i, '').trim().toUpperCase();
+
         const newStudent = new Student({
-            sid, name, email, password: hashedPassword, year, branch, section, folderPath
+            sid, name, email, password: hashedPassword,
+            year: cleanYear,
+            branch: branch || 'CSE',
+            section: cleanSection,
+            folderPath
         });
 
         await newStudent.save();
@@ -171,7 +179,7 @@ exports.registerStudent = async (req, res) => {
 // FACULTY REGISTER (By Admin)
 exports.registerFaculty = async (req, res) => {
     try {
-        const { facultyId, name, email, password, department } = req.body;
+        const { facultyId, name, email, password, department, assignments } = req.body;
 
         const existing = await Faculty.findOne({ facultyId });
         if (existing) return res.status(400).json({ error: 'Faculty ID already exists' });
@@ -180,9 +188,36 @@ exports.registerFaculty = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const folderPath = createUserFolder('faculty', facultyId);
+        let profilePic = '';
+
+        if (req.file) {
+            const fileName = `profile_${Date.now()}${path.extname(req.file.originalname)}`;
+            const destPath = path.join(folderPath, fileName);
+            fs.renameSync(req.file.path, destPath);
+            profilePic = `/uploads/faculty/${facultyId}/${fileName}`;
+        }
+
+        let parsedAssignments = [];
+        if (assignments) {
+            try {
+                parsedAssignments = typeof assignments === 'string' ? JSON.parse(assignments) : assignments;
+                // Normalize assignments
+                if (Array.isArray(parsedAssignments)) {
+                    parsedAssignments = parsedAssignments.map(a => ({
+                        ...a,
+                        year: String(a.year || '').replace(/[^0-9]/g, ''),
+                        section: String(a.section || '').replace(/Section\s*/i, '').trim().toUpperCase(),
+                        branch: String(a.branch || 'CSE').trim().toUpperCase()
+                    }));
+                }
+            } catch (e) {
+                console.error("Failed to parse faculty assignments:", e);
+            }
+        }
 
         const newFaculty = new Faculty({
-            facultyId, name, email, password: hashedPassword, department, folderPath
+            facultyId, name, email, password: hashedPassword, department, folderPath, profilePic,
+            assignments: parsedAssignments
         });
 
         await newFaculty.save();

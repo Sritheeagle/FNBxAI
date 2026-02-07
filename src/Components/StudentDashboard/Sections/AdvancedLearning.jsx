@@ -9,6 +9,7 @@ import {
 import { motion } from 'framer-motion';
 import { apiGet } from '../../../utils/apiClient';
 import '../AdvancedLearning.css';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 
 /**
  * ADVANCED LEARNING HUB
@@ -48,7 +49,6 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
     const fetchAdvancedMaterials = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetching materials filtered by tech name and isAdvanced flag
             const data = await apiGet(`/api/materials?subject=${selectedTech}&isAdvanced=true`);
             setMaterials(Array.isArray(data) ? data : []);
         } catch (e) {
@@ -59,20 +59,28 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
     }, [selectedTech]);
 
     useEffect(() => {
-        // If preloadedData already contains materials for the default selection, skip fetching.
         if (preloadedData && selectedTech === 'Python' && materials && materials.length > 0) {
             return;
         }
         fetchAdvancedMaterials();
-    }, [fetchAdvancedMaterials, preloadedData, selectedTech, materials]);
+    }, [fetchAdvancedMaterials, preloadedData, selectedTech]);
 
     const renderResources = (type) => {
         const filtered = materials.filter(m => m.type === type);
         if (filtered.length === 0) {
-            return <div className="empty-resource">NO {type.toUpperCase()} FOUND FOR {selectedTech.toUpperCase()}</div>;
+            return (
+                <div style={{ marginTop: '1rem' }}>
+                    <ProfessionalEmptyState
+                        title="NO DATA FOUND"
+                        description={`No ${type} materials available for ${selectedTech}.`}
+                        icon={type === 'videos' ? <FaVideo /> : <FaFileAlt />}
+                        theme="info"
+                    />
+                </div>
+            );
         }
 
-        const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+        const API_BASE = (process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000').replace(/\/$/, '');
 
         return (
             <div className="resource-stack">
@@ -110,16 +118,11 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
 
     return (
         <div className="nexus-advanced-container">
-            {/* Cinematic Effects */}
             <div className="nexus-cyber-grid"></div>
             <div className="nexus-scanline"></div>
 
-            {/* Header Area */}
             <div className="nexus-adv-header">
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                >
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
                     <div className="nexus-page-subtitle">
                         <FaRocket /> Advanced Learning Track
                     </div>
@@ -127,56 +130,25 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
                         LEARNING <span>HUB</span>
                     </h1>
                 </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="stat-node"
-                >
+                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="stat-node">
                     <span className="val">85%</span>
                     <span className="lab">COMPLETION</span>
                 </motion.div>
             </div>
 
-            {/* Main Navigation Tabs */}
             <div className="nexus-adv-tabs">
-                <button
-                    className={`adv-tab ${activeTab === 'languages' ? 'active' : ''}`}
-                    onClick={() => { setActiveTab('languages'); setSelectedTech('Python'); }}
-                >
-                    <FaTerminal /> LANGUAGES
-                </button>
-                <button
-                    className={`adv-tab ${activeTab === 'fullstack' ? 'active' : ''}`}
-                    onClick={() => { setActiveTab('fullstack'); setSelectedTech('React'); }}
-                >
-                    <FaCode /> FULL STACK
-                </button>
-                <button
-                    className={`adv-tab ${activeTab === 'faculty' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('faculty')}
-                >
-                    <FaUserTie /> FACULTY
-                </button>
-                <button
-                    className={`adv-tab ${activeTab === 'exams' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('exams')}
-                >
-                    <FaShieldAlt /> ASSESSMENTS
-                </button>
+                <button className={`adv-tab ${activeTab === 'languages' ? 'active' : ''}`} onClick={() => { setActiveTab('languages'); setSelectedTech('Python'); }}><FaTerminal /> LANGUAGES</button>
+                <button className={`adv-tab ${activeTab === 'fullstack' ? 'active' : ''}`} onClick={() => { setActiveTab('fullstack'); setSelectedTech('React'); }}><FaCode /> FULL STACK</button>
+                <button className={`adv-tab ${activeTab === 'faculty' ? 'active' : ''}`} onClick={() => setActiveTab('faculty')}><FaUserTie /> FACULTY</button>
+                <button className={`adv-tab ${activeTab === 'exams' ? 'active' : ''}`} onClick={() => setActiveTab('exams')}><FaShieldAlt /> ASSESSMENTS</button>
             </div>
 
             <div className="nexus-adv-content">
                 {(activeTab === 'languages' || activeTab === 'fullstack') && (
                     <div className="tech-workstation">
-                        {/* Sidebar: Tech Selector */}
                         <div className="tech-selector">
                             {techCategories[activeTab].map(tech => (
-                                <div
-                                    key={tech.name}
-                                    className={`tech-node ${selectedTech === tech.name ? 'active' : ''}`}
-                                    onClick={() => setSelectedTech(tech.name)}
-                                    style={{ '--tech-color': tech.color }}
-                                >
+                                <div key={tech.name} className={`tech-node ${selectedTech === tech.name ? 'active' : ''}`} onClick={() => setSelectedTech(tech.name)} style={{ '--tech-color': tech.color }}>
                                     <div className="tech-icon">{tech.icon}</div>
                                     <div className="tech-info">
                                         <h4>{tech.name}</h4>
@@ -187,7 +159,6 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
                             ))}
                         </div>
 
-                        {/* Main Interaction Pane */}
                         <div className="interaction-pane">
                             <div className="pane-header">
                                 <div className="pane-title">
@@ -222,25 +193,30 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
                             <p className="mission-commanders-desc">Connect with faculty members assigned to your subject.</p>
                         </div>
                         <div className="f-grid">
-                            {facultyMembers.length > 0 ? facultyMembers.map((f, i) => (
-                                <div key={i} className="f-card">
-                                    <div className="f-avatar"><FaUserTie /></div>
-                                    <div className="f-main">
-                                        <h3>{f.name}</h3>
-                                        <span className="f-subj">{f.subject}</span>
-                                        <div className="f-details">
-                                            <div className="f-detail"><FaUserTie className="text-primary" /> {f.email}</div>
-                                            <div className="f-detail"><FaClock className="text-primary" /> {f.time || 'Office Hours Available'}</div>
-                                            <div className="f-detail"><FaCalendarAlt className="text-primary" /> {f.room || 'Department Faculty Hub'}</div>
+                            {facultyMembers.length > 0 ? (
+                                facultyMembers.map((f, i) => (
+                                    <div key={i} className="f-card">
+                                        <div className="f-avatar"><FaUserTie /></div>
+                                        <div className="f-main">
+                                            <h3>{f.name}</h3>
+                                            <span className="f-subj">{f.subject}</span>
+                                            <div className="f-details">
+                                                <div className="f-detail"><FaUserTie className="text-primary" /> {f.email}</div>
+                                                <div className="f-detail"><FaClock className="text-primary" /> {f.time || 'Office Hours Available'}</div>
+                                                <div className="f-detail"><FaCalendarAlt className="text-primary" /> {f.room || 'Department Faculty Hub'}</div>
+                                            </div>
                                         </div>
+                                        <button className="f-connect">CONTACT</button>
                                     </div>
-                                    <button className="f-connect">CONTACT</button>
-                                </div>
-                            )) : (
-                                <div className="nexus-empty-journal no-synced-faculty">
-                                    <FaUserTie className="no-synced-icon" />
-                                    <h3>NO FACULTY ASSIGNED</h3>
-                                    <p>Faculty assignment data is currently being updated.</p>
+                                ))
+                            ) : (
+                                <div style={{ width: '100%', marginTop: '2rem' }}>
+                                    <ProfessionalEmptyState
+                                        title="NO FACULTY ASSIGNED"
+                                        description="Our intelligence systems haven't mapped any faculty members to your profile yet. Contact your department admin for verification."
+                                        icon={<FaUserTie />}
+                                        theme="sentinel"
+                                    />
                                 </div>
                             )}
                         </div>
@@ -252,10 +228,13 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
                         {loading ? (
                             <div className="nexus-loading-ring"></div>
                         ) : materials.filter(m => m.type === 'exam' || m.type === 'assignment').length === 0 ? (
-                            <div className="nexus-empty-journal">
-                                <FaShieldAlt className="no-synced-icon" />
-                                <h3>NO ACTIVE ASSESSMENTS</h3>
-                                <p>No upcoming exams or assignments found.</p>
+                            <div style={{ marginTop: '2rem' }}>
+                                <ProfessionalEmptyState
+                                    title="NO ACTIVE ASSESSMENTS"
+                                    description="Great news! Your upcoming exam and assignment buffer is currently clear. Focus on your mastery track."
+                                    icon={<FaShieldAlt />}
+                                    theme="all-clear"
+                                />
                             </div>
                         ) : (
                             <>
@@ -273,9 +252,7 @@ const AdvancedLearning = ({ userData, overviewData, preloadedData, openAiWithDoc
                                                 <span>TIME: {exam.duration || '60m'}</span>
                                                 <span>TYPE: {exam.mode || 'THEORY'}</span>
                                             </div>
-                                            <div className="exam-meta" style={{ marginTop: '0.5rem', color: '#64748b' }}>
-                                                <FaCalendarAlt /> {new Date(exam.date || Date.now()).toLocaleDateString()}
-                                            </div>
+                                            <div className="exam-meta" style={{ marginTop: '0.5rem', color: '#64748b' }}><FaCalendarAlt /> {new Date(exam.date || Date.now()).toLocaleDateString()}</div>
                                             <button className="exam-btn" onClick={() => window.open(exam.link || '#', '_blank')}>START TEST</button>
                                         </div>
                                     ))}

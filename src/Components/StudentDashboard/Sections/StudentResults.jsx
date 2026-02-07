@@ -2,39 +2,48 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaChartLine, FaClipboardCheck, FaBook, FaAward, FaBolt } from 'react-icons/fa';
 import { apiGet } from '../../../utils/apiClient';
+import sseClient from '../../../utils/sseClient';
 import './StudentResults.css';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 
 const StudentResults = ({ studentData, preloadedData }) => {
     const [resultsBySubject, setResultsBySubject] = useState(preloadedData || []);
     const [loading, setLoading] = useState(!preloadedData);
     const [overallStats, setOverallStats] = useState({ total: 0, max: 0, percentage: 0 });
 
+    const fetchResults = async () => {
+        if (!studentData?.sid) return;
+        try {
+            if (resultsBySubject.length === 0) setLoading(true);
+            const data = await apiGet(`/api/students/${studentData.sid}/marks-by-subject`);
+            if (Array.isArray(data)) {
+                setResultsBySubject(data);
+                calculateStats(data);
+            }
+        } catch (error) {
+            console.error('Error fetching results:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (preloadedData && Array.isArray(preloadedData)) {
             setResultsBySubject(preloadedData);
             calculateStats(preloadedData);
             setLoading(false);
-            return;
+        } else {
+            fetchResults();
         }
 
-        const fetchResults = async () => {
-            if (!studentData?.sid) return;
-            try {
-                setLoading(true);
-                const data = await apiGet(`/api/students/${studentData.sid}/marks-by-subject`);
-                if (Array.isArray(data)) {
-                    setResultsBySubject(data);
-                    calculateStats(data);
+        const unsub = sseClient.onUpdate((ev) => {
+            if (ev.resource === 'marks') {
+                if (!ev.studentId || ev.studentId === studentData.sid) {
+                    fetchResults();
                 }
-            } catch (error) {
-                console.error('Error fetching results:', error);
-                setResultsBySubject([]);
-            } finally {
-                setLoading(false);
             }
-        };
-
-        fetchResults();
+        });
+        return unsub;
     }, [studentData?.sid, preloadedData]);
 
     const calculateStats = (data) => {
@@ -68,9 +77,10 @@ const StudentResults = ({ studentData, preloadedData }) => {
 
     if (loading) {
         return (
-            <div className="results-loading">
-                <div className="neural-spinner"></div>
-                <p>Decoding Academic Records...</p>
+            <div className="results-loading" style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="neural-spinner" style={{ width: '50px', height: '50px', border: '5px solid rgba(99, 102, 241, 0.2)', borderTop: '5px solid #6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                <p style={{ marginTop: '1.5rem', fontWeight: 950, color: '#6366f1', letterSpacing: '0.1em' }}>DECODING ACADEMIC RECORDS...</p>
+                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
             </div>
         );
     }
@@ -108,98 +118,105 @@ const StudentResults = ({ studentData, preloadedData }) => {
             </header>
 
             <div className="results-subjects-grid">
-                {resultsBySubject.map((subject, idx) => {
-                    const grade = getGrade(subject.overall.percentage);
-                    return (
-                        <motion.div
-                            key={idx}
-                            className="performance-divcard"
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.05 }}
-                        >
-                            <div className="card-header-v4">
-                                <div className="sub-branding">
-                                    <div className="sub-icon"><FaBook /></div>
-                                    <div>
-                                        <h3>{subject.subject}</h3>
-                                        <span className="sub-code-tag">{subject.subject.substring(0, 7).toUpperCase()}</span>
+                {resultsBySubject.length > 0 ? (
+                    resultsBySubject.map((subject, idx) => {
+                        const grade = getGrade(subject.overall.percentage);
+                        return (
+                            <motion.div
+                                key={idx}
+                                className="performance-divcard"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                            >
+                                <div className="card-header-v4">
+                                    <div className="sub-branding">
+                                        <div className="sub-icon"><FaBook /></div>
+                                        <div>
+                                            <h3>{subject.subject}</h3>
+                                            <span className="sub-code-tag">{subject.subject.substring(0, 7).toUpperCase()}</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="card-grade" style={{ background: grade.color }}>
-                                    {grade.grade}
-                                </div>
-                            </div>
-
-                            <div className="card-marks-body">
-                                {/* CLA Section */}
-                                <div className="marker-section">
-                                    <div className="marker-head"><FaClipboardCheck /> CLA PERFORMANCE (1-5)</div>
-                                    <div className="marker-pills">
-                                        {[1, 2, 3, 4, 5].map(n => {
-                                            const match = subject.cla.find(c => c.test === n.toString());
-                                            return (
-                                                <div key={n} className={`marker-pill ${match ? 'high' : 'off'}`}>
-                                                    <label>CLA{n}</label>
-                                                    <span>{match ? match.scored : '-'}</span>
-                                                </div>
-                                            );
-                                        })}
+                                    <div className="card-grade" style={{ background: grade.color }}>
+                                        {grade.grade}
                                     </div>
                                 </div>
 
-                                {/* MODULES Section */}
-                                <div className="modules-split">
+                                <div className="card-marks-body">
                                     <div className="marker-section">
-                                        <div className="marker-head"><FaChartLine /> MODULE 1</div>
-                                        <div className="marker-targets">
-                                            {[1, 2, 3, 4].map(n => {
-                                                const match = subject.module1.find(m => m.test === `t${n}`);
+                                        <div className="marker-head"><FaClipboardCheck /> CLA PERFORMANCE (1-5)</div>
+                                        <div className="marker-pills">
+                                            {[1, 2, 3, 4, 5].map(n => {
+                                                const match = subject.cla.find(c => c.test === n.toString());
                                                 return (
-                                                    <div key={n} className="target-node">
-                                                        <span className="t-label">T{n}</span>
-                                                        <span className="t-val">{match ? match.scored : '-'}</span>
+                                                    <div key={n} className={`marker-pill ${match ? 'high' : 'off'}`}>
+                                                        <label>CLA{n}</label>
+                                                        <span>{match ? match.scored : '-'}</span>
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     </div>
-                                    <div className="marker-section">
-                                        <div className="marker-head"><FaAward /> MODULE 2</div>
-                                        <div className="marker-targets">
-                                            {[1, 2, 3, 4].map(n => {
-                                                const match = subject.module2.find(m => m.test === `t${n}`);
-                                                return (
-                                                    <div key={n} className="target-node">
-                                                        <span className="t-label">T{n}</span>
-                                                        <span className="t-val">{match ? match.scored : '-'}</span>
-                                                    </div>
-                                                );
-                                            })}
+
+                                    <div className="modules-split">
+                                        <div className="marker-section">
+                                            <div className="marker-head"><FaChartLine /> MODULE 1</div>
+                                            <div className="marker-targets">
+                                                {[1, 2, 3, 4].map(n => {
+                                                    const match = subject.module1.find(m => m.test === `t${n}`);
+                                                    return (
+                                                        <div key={n} className="target-node">
+                                                            <span className="t-label">T{n}</span>
+                                                            <span className="t-val">{match ? match.scored : '-'}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        <div className="marker-section">
+                                            <div className="marker-head"><FaAward /> MODULE 2</div>
+                                            <div className="marker-targets">
+                                                {[1, 2, 3, 4].map(n => {
+                                                    const match = subject.module2.find(m => m.test === `t${n}`);
+                                                    return (
+                                                        <div key={n} className="target-node">
+                                                            <span className="t-label">T{n}</span>
+                                                            <span className="t-val">{match ? match.scored : '-'}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="card-footer-v4">
-                                <div className="f-metric">
-                                    <label>AVERAGE</label>
-                                    <span>{subject.overall.percentage}%</span>
+                                <div className="card-footer-v4">
+                                    <div className="f-metric">
+                                        <label>AVERAGE</label>
+                                        <span>{subject.overall.percentage}%</span>
+                                    </div>
+                                    <div className="f-metric text-right">
+                                        <label>STATUS</label>
+                                        <span className={subject.overall.percentage >= 40 ? 'pass' : 'fail'}>
+                                            {subject.overall.percentage >= 40 ? 'QUALIFIED' : 'BELOW PAR'}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="f-metric text-right">
-                                    <label>STATUS</label>
-                                    <span className={subject.overall.percentage >= 40 ? 'pass' : 'fail'}>
-                                        {subject.overall.percentage >= 40 ? 'QUALIFIED' : 'BELOW PAR'}
-                                    </span>
-                                </div>
-                            </div>
-                        </motion.div>
-                    );
-                })}
+                            </motion.div>
+                        );
+                    })
+                ) : (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                        <ProfessionalEmptyState
+                            title="NO MARKS RECORDED"
+                            description="Deep scan complete. No examination or test records were found for the current semester. Contact your subject faculty for evaluation status."
+                            icon={<FaAward />}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
 export default StudentResults;
-

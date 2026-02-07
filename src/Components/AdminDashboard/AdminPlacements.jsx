@@ -116,66 +116,96 @@ const AdminPlacements = () => {
 
     return (
         <div className="admin-placements-layout animate-fade-in">
-            <header className="f-view-header">
-                <div>
-                    <h2>PLACEMENT <span>SYSTEM</span></h2>
-                    <p style={{ color: '#64748b' }}>Strategic Recruitment and Interview Intelligence</p>
+            <header className="admin-page-header">
+                <div className="admin-page-title">
+                    <h1>CAREER <span>NEXUS</span></h1>
+                    <p>Strategic recruitment intelligence and placement pipeline</p>
                 </div>
-                <div className="f-header-actions">
-                    <div className="f-search-box">
+                <div className="admin-action-bar compact">
+                    <button className="admin-btn admin-btn-primary" onClick={() => handleOpenModal()}>
+                        <FaPlus /> ENROLL PARTNER
+                    </button>
+                </div>
+            </header>
+
+            {/* Strategic Analytics */}
+            {/* Strategic Analytics */}
+            <div className="admin-stats-grid mb-lg">
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#eff6ff', color: '#6366f1', width: '50px', height: '50px', borderRadius: '14px' }}><FaBuilding /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{companies.length}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>TARGET CORPORATIONS</div>
+                </div>
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#dcfce7', color: '#10b981', width: '50px', height: '50px', borderRadius: '14px' }}><FaDollarSign /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{companies.sort((a, b) => parseFloat(b.package) - parseFloat(a.package))[0]?.package || '0'}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>PEAK PACKAGE ALT</div>
+                </div>
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-2s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#fef3c7', color: '#f59e0b', width: '50px', height: '50px', borderRadius: '14px' }}><FaHistory /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{companies.reduce((acc, c) => acc + (c.questions?.length || 0), 0)}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>INTEL ASSETS</div>
+                </div>
+            </div>
+
+            <div className="admin-card mb-lg">
+                <div className="admin-filter-bar" style={{ gap: '1rem' }}>
+                    <div className="admin-search-wrapper" style={{ flex: 1 }}>
                         <FaSearch />
                         <input
-                            type="text"
-                            placeholder="Find target companies..."
+                            className="admin-search-input"
+                            placeholder="SEARCH BY COMPANY IDENTITY OR ROLE..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <button className="admin-btn admin-btn-primary" onClick={() => handleOpenModal()}>
-                        <FaPlus /> ENROLL COMPANY
-                    </button>
                 </div>
-            </header>
+            </div>
 
             <div className="admin-placements-grid">
                 {filteredCompanies.map((company, idx) => (
                     <motion.div
                         key={company._id}
-                        className="admin-company-card-v2"
+                        className="admin-company-card-v2 sentinel-floating"
+                        style={{ animationDelay: `${idx * -0.4}s` }}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.05 }}
                     >
+                        <div className="sentinel-scanner"></div>
                         <div className="card-top-accent" style={{ background: company.color }}></div>
                         <div className="card-main-info">
                             <div className="company-branding">
-                                <div className="company-logo-stub" style={{ background: company.color }}>{company.name[0]}</div>
+                                <div className="company-logo-stub" style={{ background: company.color, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>{company.name[0]}</div>
                                 <div>
-                                    <h3>{company.name}</h3>
-                                    <span className="role-chip">{company.hiringRole}</span>
+                                    <h3 style={{ fontWeight: 950 }}>{company.name}</h3>
+                                    <span className="role-chip" style={{ fontWeight: 850 }}>{company.hiringRole.toUpperCase()}</span>
                                 </div>
                             </div>
-                            <div className="package-info">
-                                <FaDollarSign /> <strong>{company.package}</strong>
+                            <div className="package-info" style={{ fontWeight: 950, color: '#10b981' }}>
+                                <FaDollarSign /> <span>{company.package}</span>
                             </div>
                         </div>
 
-                        <div className="card-stats-row">
+                        <div className="card-stats-row" style={{ borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>
                             <div className="stat-node">
-                                <label>DOMAINS</label>
-                                <span>{company.domains?.length || 0}</span>
+                                <label style={{ fontWeight: 950 }}>ACTIVE SECTORS</label>
+                                <span style={{ fontWeight: 950 }}>{company.domains?.length || 0}</span>
                             </div>
                             <div className="stat-node">
-                                <label>INTEL ASSETS</label>
-                                <span>{company.questions?.length || 0} Qs</span>
+                                <label style={{ fontWeight: 950 }}>INTEL ASSETS</label>
+                                <span style={{ fontWeight: 950 }}>{company.questions?.length || 0} Qs</span>
                             </div>
                         </div>
 
                         <div className="card-actions-v2">
-                            <button className="icon-btn-v2" onClick={() => handleOpenModal(company)} title="Edit Intelligence">
+                            <button className="icon-btn-v2" onClick={() => handleOpenModal(company)} title="Edit Intelligence" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', width: '36px', height: '36px', borderRadius: '10px' }}>
                                 <FaEdit />
                             </button>
-                            <button className="icon-btn-v2 danger" onClick={() => handleDelete(company._id)} title="Evict Company">
+                            <button className="icon-btn-v2 danger" onClick={() => handleDelete(company._id)} title="Evict Company" style={{ background: '#fff1f2', border: '1px solid #fee2e2', color: '#ef4444', width: '36px', height: '36px', borderRadius: '10px' }}>
                                 <FaTrash />
                             </button>
                         </div>

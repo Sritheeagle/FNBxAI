@@ -63,46 +63,50 @@ const AcademicPulse = ({ data }) => {
                 </div>
 
                 <div className="pulse-nodes-grid">
-                    <div className="pulse-node-card streak">
+                    <div className="pulse-node-card streak sentinel-floating" style={{ animationDelay: '0s', position: 'relative', overflow: 'hidden' }}>
+                        <div className="sentinel-scanner" style={{ opacity: 0.1 }}></div>
                         <div className="node-icon-box"><FaFire /></div>
                         <div className="node-content">
                             <div className="node-value-box">
-                                <span className="node-number">{streak}</span>
-                                <span className="node-unit">Days</span>
+                                <span className="node-number" style={{ fontWeight: 950 }}>{streak}</span>
+                                <span className="node-unit" style={{ fontWeight: 850 }}>DAYS</span>
                             </div>
-                            <span className="node-desc">STREAK</span>
+                            <span className="node-desc" style={{ fontWeight: 950, letterSpacing: '0.05em' }}>CONSISTENCY</span>
                         </div>
                     </div>
 
-                    <div className="pulse-node-card ai">
+                    <div className="pulse-node-card ai sentinel-floating" style={{ animationDelay: '-1.5s', position: 'relative', overflow: 'hidden' }}>
+                        <div className="sentinel-scanner" style={{ opacity: 0.1 }}></div>
                         <div className="node-icon-box"><FaRobot /></div>
                         <div className="node-content">
                             <div className="node-value-box">
-                                <span className="node-number">{aiUsage}</span>
-                                <span className="node-unit">%</span>
+                                <span className="node-number" style={{ fontWeight: 950 }}>{aiUsage}</span>
+                                <span className="node-unit" style={{ fontWeight: 850 }}>%</span>
                             </div>
-                            <span className="node-desc">AI USAGE</span>
+                            <span className="node-desc" style={{ fontWeight: 950, letterSpacing: '0.05em' }}>AI SYNCHRONY</span>
                         </div>
                     </div>
 
-                    <div className="pulse-node-card exams">
+                    <div className="pulse-node-card exams sentinel-floating" style={{ animationDelay: '-3s', position: 'relative', overflow: 'hidden' }}>
+                        <div className="sentinel-scanner" style={{ opacity: 0.1 }}></div>
                         <div className="node-icon-box"><FaGraduationCap /></div>
                         <div className="node-content">
                             <div className="node-value-box">
-                                <span className="node-number">{examsTaken}</span>
+                                <span className="node-number" style={{ fontWeight: 950 }}>{examsTaken}</span>
                             </div>
-                            <span className="node-desc">EXAMS DONE</span>
+                            <span className="node-desc" style={{ fontWeight: 950, letterSpacing: '0.05em' }}>DATA LOGS</span>
                         </div>
                     </div>
 
-                    <div className="pulse-node-card growth">
+                    <div className="pulse-node-card growth sentinel-floating" style={{ animationDelay: '-4.5s', position: 'relative', overflow: 'hidden' }}>
+                        <div className="sentinel-scanner" style={{ opacity: 0.1 }}></div>
                         <div className="node-icon-box"><FaChartLine /></div>
                         <div className="node-content">
                             <div className="node-value-box">
-                                <span className="node-number">{growth}</span>
-                                <span className="node-unit">%</span>
+                                <span className="node-number" style={{ fontWeight: 950 }}>{growth}</span>
+                                <span className="node-unit" style={{ fontWeight: 850 }}>%</span>
                             </div>
-                            <span className="node-desc">GROWTH</span>
+                            <span className="node-desc" style={{ fontWeight: 950, letterSpacing: '0.05em' }}>EXPANSION</span>
                         </div>
                     </div>
                 </div>
@@ -114,15 +118,17 @@ const AcademicPulse = ({ data }) => {
                     <div className="strip-label">SUBJECT PERFORMANCE MATRIX</div>
                     <div className="strip-grid">
                         {Object.entries(data.academics.details).slice(0, 4).map(([subject, stats]) => (
-                            <div key={subject} className="strip-item">
-                                <div className="strip-item-header">
-                                    <span className="s-name">{subject}</span>
-                                    <span className="s-val">{stats.percentage}%</span>
+                            stats && (
+                                <div key={subject} className="strip-item">
+                                    <div className="strip-item-header">
+                                        <span className="s-name">{subject}</span>
+                                        <span className="s-val">{stats.percentage || 0}%</span>
+                                    </div>
+                                    <div className="s-bar-container">
+                                        <div className="s-bar-glow" style={{ width: `${stats.percentage || 0}%` }}></div>
+                                    </div>
                                 </div>
-                                <div className="s-bar-container">
-                                    <div className="s-bar-glow" style={{ width: `${stats.percentage}%` }}></div>
-                                </div>
-                            </div>
+                            )
                         ))}
                     </div>
                 </div>

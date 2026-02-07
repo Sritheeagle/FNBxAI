@@ -5,11 +5,15 @@ const sse = require('../sse');
 // --- MESSAGES ---
 exports.getMessages = async (req, res) => {
     try {
-        const { role, userId, year, section } = req.query;
+        let { role, userId, year, section } = req.query;
+        year = year ? String(year).replace(/[^0-9]/g, '') : year;
+        section = section ? String(section).replace(/Section\s*/i, '').trim().toUpperCase() : section;
+
         let query = {};
 
         // If filtering for a specific student
         if (role === 'student') {
+            const studentBranch = String(req.query.branch || '').toUpperCase();
             query = {
                 $or: [
                     { target: 'all' },
@@ -17,10 +21,22 @@ exports.getMessages = async (req, res) => {
                     {
                         target: 'students-specific',
                         targetYear: year,
-                        $or: [
-                            { targetSections: section },
-                            { targetSections: { $size: 0 } },
-                            { targetSections: { $exists: false } }
+                        $and: [
+                            {
+                                $or: [
+                                    { targetBranch: { $regex: new RegExp(`(^|[\\s,])(${studentBranch}|All)($|[\\s,])`, 'i') } },
+                                    { targetBranch: { $exists: false } },
+                                    { targetBranch: "" }
+                                ]
+                            },
+                            {
+                                $or: [
+                                    { targetSections: { $regex: new RegExp(`(^|[\\s,])(${section})($|[\\s,])`, 'i') } },
+                                    { targetSections: { $regex: /^all$/i } },
+                                    { targetSections: { $size: 0 } },
+                                    { targetSections: { $exists: false } }
+                                ]
+                            }
                         ]
                     }
                 ]
@@ -45,10 +61,23 @@ exports.getMessages = async (req, res) => {
 exports.createMessage = async (req, res) => {
     try {
         const messageData = { ...req.body };
+
+        if (messageData.targetYear) {
+            messageData.targetYear = String(messageData.targetYear).replace(/[^0-9]/g, '');
+        }
+
+        // Split comma-separated sections if string
+        if (typeof messageData.targetSections === 'string') {
+            messageData.targetSections = messageData.targetSections.split(',').map(s => String(s).replace(/Section\s*/i, '').trim().toUpperCase());
+        } else if (Array.isArray(messageData.targetSections)) {
+            messageData.targetSections = messageData.targetSections.map(s => String(s).replace(/Section\s*/i, '').trim().toUpperCase());
+        }
         // Simple mapping for faculty messages if sent via /api/faculty/messages pattern
         if (messageData.sections && !messageData.targetSections) {
-            messageData.targetSections = Array.isArray(messageData.sections) ? messageData.sections : [messageData.sections];
-            messageData.targetYear = messageData.year;
+            messageData.targetSections = (Array.isArray(messageData.sections) ? messageData.sections : [messageData.sections])
+                .map(s => String(s).replace(/Section\s*/i, '').trim().toUpperCase());
+            messageData.targetYear = String(messageData.year || '').replace(/[^0-9]/g, '');
+            messageData.targetBranch = messageData.branch || 'All';
             messageData.target = 'students-specific';
         }
 
@@ -59,6 +88,30 @@ exports.createMessage = async (req, res) => {
         sse.broadcast('messages', { action: 'create', data: msg });
 
         res.status(201).json(msg);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// --- SENTINEL TRANSMISSIONS (High-Priority Alerts) ---
+exports.sendTransmission = async (req, res) => {
+    try {
+        const { title, message, type, priority, target } = req.body;
+
+        const transmission = {
+            id: Date.now(),
+            title: title || 'SYSTEM TRANSMISSION',
+            message: message,
+            type: type || 'info', // info, alert, emergency
+            priority: priority || 'normal',
+            target: target || 'all',
+            timestamp: new Date().toISOString()
+        };
+
+        // Broadcast to SSE directly without saving to DB (for volatile, high-priority alerts)
+        sse.broadcast('transmission', { action: 'active', data: transmission });
+
+        res.json({ success: true, transmission });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

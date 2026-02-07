@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { FaCloudUploadAlt, FaTrash, FaFilter } from 'react-icons/fa';
 import { apiUpload, apiPost, apiGet, apiDelete } from '../../utils/apiClient';
 
+import sseClient from '../../utils/sseClient';
+
 /**
  * NEXUS CONTENT DEPLOYMENT HUB
  * Central interface for orchestrating academic resources and tactical broadcasts.
  */
-const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess }) => {
+const MaterialManager = ({ selectedSubject, selectedBranch, selectedSections, onUploadSuccess }) => {
     // Proactive hardening
-    selectedSubject = selectedSubject || 'General - Year 1';
-    selectedSections = selectedSections || [];
+    const subjectContext = selectedSubject || 'General - Year 1';
+    const branchContext = selectedBranch || 'All';
+    const sectionsContext = selectedSections || [];
+
     const [uploadType, setUploadType] = useState('notes');
     const [materials, setMaterials] = useState({
         notes: null, videos: null, modelPapers: null, syllabus: null, assignments: null, interviewQnA: null
@@ -22,21 +26,39 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
     const [broadcastType] = useState('announcement');
     const [editId, setEditId] = useState(null);
 
+    // Real-Time Sync
     useEffect(() => {
-        if (selectedSubject && selectedSections.length > 0) {
+        const unsub = sseClient.onUpdate((ev) => {
+            if (ev.resource === 'materials') {
+                fetchGlobalResources(); // Refresh on any material change
+            }
+        });
+        return unsub;
+    }, [subjectContext, branchContext]); // Re-bind if subject or branch changes
+
+    useEffect(() => {
+        if (subjectContext && sectionsContext.length > 0) {
             fetchGlobalResources();
         }
-    }, [selectedSubject, selectedSections]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [subjectContext, sectionsContext, branchContext]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchGlobalResources = async () => {
-        if (!selectedSubject) return;
-        const parts = selectedSubject.split(' - Year ');
-        const subject = parts[parts.length - 2] || 'General';
-        const year = parts[parts.length - 1] || '1';
+        if (!subjectContext) return;
+        const { subject, year } = getContext();
 
         try {
-            const data = await apiGet(`/api/materials?year=${year}&subject=${encodeURIComponent(subject)}`);
-            if (data) setGlobalResources(data.filter(m => String(m.year) === String(year)));
+            const data = await apiGet(`/api/materials?year=${year}&subject=${encodeURIComponent(subject)}&branch=${encodeURIComponent(branchContext)}`);
+            if (data) {
+                setGlobalResources(data.filter(m => {
+                    const mYear = String(m.year || '').toUpperCase();
+                    const sYear = String(year).toUpperCase();
+                    const yearMatch = mYear === sYear || mYear === 'ALL';
+                    const mBranch = String(m.branch || 'All').toUpperCase();
+                    const sBranch = String(branchContext).toUpperCase();
+                    const branchMatch = mBranch === 'ALL' || sBranch === 'ALL' || mBranch === sBranch;
+                    return yearMatch && branchMatch;
+                }));
+            }
         } catch (err) { console.error("Error fetching materials registry:", err); }
     };
 
@@ -46,14 +68,17 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
     };
 
     const getContext = () => {
-        const parts = selectedSubject.split(' - Year ');
-        const year = parts[parts.length - 1] || '1';
-        const subject = parts.slice(0, parts.length - 1).join(' - Year ') || 'General';
+        if (!subjectContext) return { subject: 'General', year: '1' };
+        const parts = subjectContext.split(' - Year ');
+        if (parts.length < 2) return { subject: subjectContext, year: '1' };
+
+        const year = parts[parts.length - 1];
+        const subject = parts.slice(0, parts.length - 1).join(' - Year ');
         return { subject, year };
     };
 
     const handleUpload = async () => {
-        if (selectedSections.length === 0) return alert('Upload Error: Please select at least one section.');
+        if (sectionsContext.length === 0) return alert('Upload Error: Please select at least one section.');
         const { subject, year } = getContext();
         const file = materials[uploadType];
         if (!editId && !file) return alert('Upload Error: Please select a file.');
@@ -63,7 +88,8 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
             if (file) apiFormData.append('file', file);
             apiFormData.append('year', year);
             apiFormData.append('semester', formData.semester || '1');
-            apiFormData.append('section', selectedSections.join(','));
+            apiFormData.append('branch', branchContext);
+            apiFormData.append('section', sectionsContext.sort().join(','));
             apiFormData.append('subject', subject);
             apiFormData.append('type', uploadType);
             apiFormData.append('title', file ? file.name : formData.title);
@@ -93,11 +119,16 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure?")) return;
+        if (!window.confirm("Are you sure you want to delete this resource?")) return;
         try {
             await apiDelete(`/api/materials/${id}`);
+            alert("Success: Material purged.");
+        } catch (e) {
+            console.error("[Delete Material] Error:", e);
+            alert("Delete Failed: " + e.message);
+        } finally {
             fetchGlobalResources();
-        } catch (e) { alert("Delete Failed: " + e.message); }
+        }
     };
 
     const handleEdit = (res) => {
@@ -126,7 +157,8 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
             const linkForm = new FormData();
             linkForm.append('title', title);
             linkForm.append('year', year);
-            linkForm.append('section', selectedSections.join(','));
+            linkForm.append('branch', branchContext);
+            linkForm.append('section', sectionsContext.sort().join(','));
             linkForm.append('subject', subject);
             linkForm.append('type', type);
             linkForm.append('link', url);
@@ -171,32 +203,34 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
                         </div>
 
                         <div
-                            className="nexus-dropzone"
+                            className="nexus-dropzone sentinel-floating"
                             onClick={() => document.getElementById(uploadType).click()}
                             style={{
-                                height: '220px',
-                                border: '2px dashed #e2e8f0',
+                                height: '240px',
+                                border: '2px dashed ' + (materials[uploadType] ? '#10b981' : '#e2e8f0'),
                                 borderRadius: '32px',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 cursor: 'pointer',
-                                background: '#f8fafc',
+                                background: materials[uploadType] ? 'rgba(16, 185, 129, 0.02)' : '#f8fafc',
                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                 position: 'relative',
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                animationDelay: '0s'
                             }}
                         >
                             <input type="file" id={uploadType} name={uploadType} style={{ display: 'none' }} onChange={handleFileChange} />
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--accent-primary)', opacity: 0.1 }}></div>
-                            <FaCloudUploadAlt style={{ fontSize: '3.5rem', color: 'var(--accent-primary)', marginBottom: '1.5rem', filter: 'drop-shadow(0 10px 15px rgba(99, 102, 241, 0.2))' }} />
-                            <h3 style={{ margin: 0, fontWeight: 950, color: '#1e293b', fontSize: '1.2rem' }}>
-                                {materials[uploadType] ? materials[uploadType].name : 'INITIALIZE TARGET UPLOAD'}
+                            <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: materials[uploadType] ? '#10b981' : 'var(--accent-primary)', opacity: 0.3 }}></div>
+                            <FaCloudUploadAlt style={{ fontSize: '4rem', color: materials[uploadType] ? '#10b981' : 'var(--accent-primary)', marginBottom: '1.5rem', filter: `drop-shadow(0 10px 20px ${materials[uploadType] ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.3)'})` }} />
+                            <h3 style={{ margin: 0, fontWeight: 950, color: '#1e293b', fontSize: '1.4rem', letterSpacing: '-0.02em' }}>
+                                {materials[uploadType] ? materials[uploadType].name : 'INITIALIZE TARGET DEPLOYMENT'}
                             </h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 850, marginTop: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                <FaFilter /> {selectedSubject}
-                            </p>
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                                <span className="f-meta-badge type" style={{ background: '#f1f5f9', color: '#64748b' }}>SUBJECT: {subjectContext.split(' - ')[0]}</span>
+                                <span className="f-meta-badge type" style={{ background: '#f1f5f9', color: '#64748b' }}>STATUS: READY</span>
+                            </div>
                         </div>
 
                         <div className="nexus-form-grid" style={{ marginTop: '3rem', marginBottom: '3rem' }}>
@@ -244,28 +278,30 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
 
                 {activeTab === 'resources' && (
                     <div className="registry-nexus animate-fade-in">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem' }}>
                             {globalResources.length > 0 ? globalResources.map((res, i) => (
-                                <div key={i} className="f-modal-list-item animate-slide-up" style={{ animationDelay: `${i * 0.05}s`, background: '#f8fafc', padding: '1.5rem', borderRadius: '20px', border: '1px solid #f1f5f9' }}>
+                                <div key={i} className="f-modal-list-item sentinel-floating" style={{ animationDelay: `${i * -0.5}s`, background: 'white', padding: '1.5rem', borderRadius: '24px', border: '1px solid #f1f5f9', position: 'relative', overflow: 'hidden' }}>
+                                    <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'var(--accent-primary)', opacity: 0.1 }}></div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1 }}>
-                                        <div style={{ background: 'white', color: 'var(--accent-primary)', width: '52px', height: '52px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', fontWeight: 950, fontSize: '0.8rem' }}>
+                                        <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.1)', fontWeight: 950, fontSize: '0.8rem' }}>
                                             {res.type?.substring(0, 3).toUpperCase()}
                                         </div>
-                                        <div>
-                                            <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '1rem' }}>{res.title || res.topic}</div>
-                                            <div style={{ fontSize: '0.7rem', fontWeight: 850, color: '#94a3b8', marginTop: '0.3rem', textTransform: 'uppercase' }}>
-                                                MOD {res.module} • UNIT {res.unit} • {res.type}
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '1.05rem', letterSpacing: '-0.01em' }}>{res.title || res.topic}</div>
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 900, color: '#94a3b8', marginTop: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                MODULE {res.module} • UNIT {res.unit} • {res.type}
                                             </div>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                        <button className="f-quick-btn shadow" onClick={() => handleEdit(res)} title="Refine Node"><FaCloudUploadAlt /></button>
-                                        <button className="f-quick-btn shadow delete" onClick={() => handleDelete(res._id || res.id)} title="Purge Node"><FaTrash /></button>
+                                        <button className="f-quick-btn shadow" style={{ width: '36px', height: '36px', borderRadius: '10px' }} onClick={() => handleEdit(res)} title="Refine Node"><FaCloudUploadAlt /></button>
+                                        <button className="f-quick-btn shadow delete" style={{ width: '36px', height: '36px', borderRadius: '10px' }} onClick={() => handleDelete(res._id || res.id)} title="Purge Node"><FaTrash /></button>
                                     </div>
                                 </div>
                             )) : (
-                                <div className="f-center-empty" style={{ padding: '5rem' }}>
-                                    <p style={{ fontWeight: 850, color: '#cbd5e1', letterSpacing: '0.1em' }}>NO ASSETS DETECTED IN REGISTRY</p>
+                                <div className="f-node-card f-center-empty" style={{ gridColumn: '1 / -1', padding: '6rem' }}>
+                                    <div style={{ fontSize: '4rem', marginBottom: '2rem', opacity: 0.2 }}>📦</div>
+                                    <p style={{ fontWeight: 950, color: '#94a3b8', letterSpacing: '0.15em', fontSize: '0.8rem' }}>REGISTRY REPOSITORY EMPTY</p>
                                 </div>
                             )}
                         </div>
@@ -290,7 +326,7 @@ const MaterialManager = ({ selectedSubject, selectedSections, onUploadSuccess })
                             onClick={async () => {
                                 if (!broadcastMsg) return alert('Signal message required.');
                                 const { subject, year } = getContext();
-                                await apiPost('/api/faculty/messages', { message: broadcastMsg, type: broadcastType, year, sections: selectedSections, subject });
+                                await apiPost('/api/faculty/messages', { message: broadcastMsg, type: broadcastType, year, sections: sectionsContext, subject, branch: branchContext });
                                 alert('Broadcast Signal Transmitted.'); setBroadcastMsg('');
                             }}
                         >

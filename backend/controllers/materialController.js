@@ -3,14 +3,24 @@ const sse = require('../sse');
 
 exports.getMaterials = async (req, res) => {
     try {
-        const { year, subject, section, isAdvanced } = req.query;
+        const { year, subject, section, isAdvanced, branch } = req.query;
         const query = {};
-        if (year) query.year = year;
+        if (year) {
+            const sYear = String(year).replace(/[^0-9]/g, '');
+            query.year = { $in: [sYear, 'All', 'all'] };
+        }
         if (subject) query.subject = subject;
         if (isAdvanced) query.isAdvanced = isAdvanced === 'true';
-        if (section && section !== 'All') {
-            const secRegex = new RegExp(`(^|,)${section}(,|$)`, 'i');
-            query.$or = [{ section: 'All' }, { section: secRegex }];
+        if (branch) query.branch = { $regex: new RegExp(`(^|[\\s,])(${branch}|All)($|[\\s,])`, 'i') };
+        if (section) {
+            const sSec = String(section).replace(/Section\s*/i, '').trim().toUpperCase();
+            query.$or = [
+                { section: 'All' },
+                { section: { $regex: /^all$/i } },
+                { section: { $regex: new RegExp(`(^|[\\s,])(${sSec})($|[\\s,])`, 'i') } },
+                { section: "" },
+                { section: { $exists: false } }
+            ];
         }
 
         const materials = await Material.find(query).sort({ createdAt: -1 });

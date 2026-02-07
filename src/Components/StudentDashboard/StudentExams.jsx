@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { FaClock, FaListAlt, FaArrowLeft, FaRocket, FaShieldAlt, FaHistory, FaChevronRight } from 'react-icons/fa';
+import { FaClock, FaListAlt, FaArrowLeft, FaRocket, FaShieldAlt, FaHistory, FaChevronRight, FaChalkboardTeacher } from 'react-icons/fa';
 import { apiGet, apiPost } from '../../utils/apiClient';
+import ProfessionalEmptyState from './Sections/ProfessionalEmptyState';
 import './StudentExams.css';
 
 /**
  * EXAM DASHBOARD (Student Exams)
  * A premium interface for exams, quizzes, and academic assessments.
  */
-const StudentExams = ({ studentData, preloadedData }) => {
+const StudentExams = ({ studentData, preloadedData, assignedFaculty = [] }) => {
     const [view, setView] = useState('list'); // 'list', 'taking', 'result', 'history'
     const [exams, setExams] = useState([]);
     const [results, setResults] = useState([]);
@@ -44,12 +45,38 @@ const StudentExams = ({ studentData, preloadedData }) => {
         }
     };
 
-    const startExam = (exam) => {
+    const startExam = async (exam) => {
         setCurrentExam(exam);
         setUserAnswers({});
         setTimeLeft(exam.durationMinutes * 60);
         setView('taking');
+
+        // Notify Sentinel
+        try {
+            await apiPost('/api/exams/monitor', { event: 'start', examId: exam._id, studentId: sid });
+        } catch (e) {
+            console.warn("Sentinel Monitor failed to init", e);
+        }
     };
+
+    // Sentinel Integrity Monitor (Tab Switch Detection)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden && view === 'taking' && currentExam) {
+                apiPost('/api/exams/monitor', {
+                    event: 'flag',
+                    examId: currentExam._id,
+                    studentId: sid,
+                    details: 'Tab Switch / Background Violation'
+                }).catch(e => console.warn("Flag failed", e));
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, [view, currentExam, sid]);
 
     const handleAnswer = (qIndex, optionIndex) => {
         setUserAnswers(prev => ({ ...prev, [qIndex]: optionIndex }));
@@ -251,28 +278,42 @@ const StudentExams = ({ studentData, preloadedData }) => {
             {loading ? <div className="nexus-loading-ring"></div> : (
                 <div className="nexus-challenges-grid">
                     {exams.length === 0 ? (
-                        <div className="nexus-empty-challenges">
-                            <div className="empty-ufo">📝</div>
-                            <h3>NO ACTIVE EXAMS</h3>
-                            <p>No active exams found for your branch ({branch}) and year ({year}). Please check back later.</p>
-                            <button onClick={fetchExams} className="nexus-btn-pri-mini">REFRESH LIST</button>
+                        <div style={{ padding: '2rem' }}>
+                            <ProfessionalEmptyState
+                                title="NO ACTIVE EXAMS"
+                                description={`The examination portal is currently clear for your branch (${branch}). No active challenges or quizzes were detected in the uplink.`}
+                                icon={<FaRocket />}
+                                theme="sentinel"
+                            />
+                            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+                                <button onClick={fetchExams} className="nexus-btn-pri-mini">REFRESH PIPELINE</button>
+                            </div>
                         </div>
                     ) : (
                         <div className="nexus-notes-grid">
-                            {exams.map(exam => (
-                                <div key={exam._id} className="challenge-node-card">
+                            {exams.map((exam, idx) => (
+                                <div key={exam._id} className="challenge-node-card sentinel-floating" style={{ animationDelay: `${idx * -1.5}s`, position: 'relative', overflow: 'hidden' }}>
+                                    <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'var(--v-primary)', opacity: 0.2 }}></div>
                                     <div className="node-accent"></div>
                                     <div className="node-head">
                                         <span className="subject-tag">{exam.subject.toUpperCase()}</span>
-                                        <span className="week-tag">{exam.week || 'CORE'}</span>
+                                        {(() => {
+                                            const fac = assignedFaculty.find(f => f._id === exam.facultyId || f.facultyId === exam.facultyId);
+                                            return fac ? (
+                                                <span className="week-tag" style={{ background: '#eef2ff', color: '#4f46e5', border: 'none' }}>
+                                                    <FaChalkboardTeacher /> {fac.name}
+                                                </span>
+                                            ) : null;
+                                        })()}
+                                        <span className="week-tag">{exam.week || 'CORE ASSESSMENT'}</span>
                                     </div>
                                     <h3 className="node-title">{exam.title}</h3>
                                     <div className="node-metrics">
-                                        <div className="node-metric-item"><FaListAlt /> {exam.questions.length} QUESTIONS</div>
-                                        <div className="node-metric-item"><FaClock /> {exam.durationMinutes} MINS</div>
+                                        <div className="node-metric-item"><FaListAlt /> {exam.questions.length} DATA NODES</div>
+                                        <div className="node-metric-item"><FaClock /> {exam.durationMinutes} MINUTES</div>
                                     </div>
                                     <button onClick={() => startExam(exam)} className="node-launch-btn">
-                                        START EXAM <FaChevronRight />
+                                        INITIALIZE UPLINK <FaChevronRight />
                                     </button>
                                 </div>
                             ))}

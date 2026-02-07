@@ -5,6 +5,7 @@ const messageSchema = new mongoose.Schema({
     target: { type: String, default: 'all' }, // 'all', 'faculty', 'students', 'students-specific'
     type: { type: String, default: 'announcement' },
     targetYear: { type: String },
+    targetBranch: { type: String, default: 'All' },
     targetSections: [{ type: String }],
     subject: { type: String }, // For faculty-sent messages
     sender: { type: String }, // Name or ID of sender

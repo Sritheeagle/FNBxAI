@@ -1,9 +1,19 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import certifi
 
-load_dotenv()
+# Robustly find .env file
+env_path = Path('.env')
+if not env_path.exists():
+    env_path = Path('../.env')
+
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+    print(f"[*] Loaded environment from {env_path.absolute()}")
+else:
+    load_dotenv() # Try default search
 
 # Database Connection
 MONGO_URI = os.getenv("MONGO_URI")

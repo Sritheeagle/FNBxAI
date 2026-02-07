@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { FaUserPlus, FaBook, FaBullhorn, FaTimes, FaBell } from 'react-icons/fa';
 import sseClient from '../../utils/sseClient';
+import { motion, AnimatePresence } from 'framer-motion';
 import './GlobalNotifications.css';
 
 const GlobalNotifications = ({ userRole, userData }) => {
     const [notifications, setNotifications] = useState([]);
+    const [activeTransmission, setActiveTransmission] = useState(null);
 
     useEffect(() => {
         const unsubscribe = sseClient.onUpdate((data) => {
@@ -30,8 +32,8 @@ const GlobalNotifications = ({ userRole, userData }) => {
                     id: Date.now(),
                     type: 'info',
                     iconType: 'user-plus',
-                    title: 'New Student Enrolled',
-                    message: `${student.studentName} joined Year ${student.year} (${student.branch} - Sec ${student.section})`,
+                    title: 'INTELLIGENCE SYNC',
+                    message: `New Student: ${student.studentName} has initialized in sector Year ${student.year} (${student.branch} - Sec ${student.section})`,
                     time: timestamp
                 };
             }
@@ -49,8 +51,8 @@ const GlobalNotifications = ({ userRole, userData }) => {
                         id: Date.now(),
                         type: 'success',
                         iconType: 'user-plus',
-                        title: 'New Student in Your Class',
-                        message: `${student.studentName} has been added to Year ${student.year} Section ${student.section}.`,
+                        title: 'PERSONNEL UPLINK',
+                        message: `New Subject: ${student.studentName} has been assigned to your sector (Year ${student.year} Section ${student.section}).`,
                         time: timestamp
                     };
                 }
@@ -69,14 +71,18 @@ const GlobalNotifications = ({ userRole, userData }) => {
                     id: Date.now(),
                     type: 'info',
                     iconType: 'book',
-                    title: 'Material Uploaded',
-                    message: `Faculty uploaded "${material.title}" for Year ${material.year} ${material.subject}.`,
+                    title: 'KNOWLEDGE UPLOAD',
+                    message: `Faculty uploaded "${material.title}" for tactical sector Year ${material.year} ${material.subject}.`,
                     time: timestamp
                 };
             }
             // Student: Sees if it matches their year/section
             else if (userRole === 'student' && userData) {
-                if (String(userData.year) === String(material.year)) {
+                const yearMatch = String(userData.year) === String(material.year);
+                const branchMatch = !material.branch || material.branch === 'All' || material.branch === userData.branch;
+                const sectionMatch = !material.section || material.section === 'All' || material.section === userData.section;
+
+                if (yearMatch && branchMatch && sectionMatch) {
                     newNotif = {
                         id: Date.now(),
                         type: 'accent',
@@ -121,6 +127,25 @@ const GlobalNotifications = ({ userRole, userData }) => {
             }
         }
 
+        // -----------------------------
+        // 4. SENTINEL TRANSMISSIONS
+        // -----------------------------
+        if (data.resource === 'transmission' && data.action === 'active') {
+            const trans = data.data;
+            // High-priority transmissions take over the screen
+            if (trans.target === 'all' ||
+                (trans.target === 'students' && userRole === 'student') ||
+                (trans.target === 'faculty' && userRole === 'faculty')) {
+                setActiveTransmission(trans);
+
+                // Also add to history if needed, but primary is the overlay
+                // Auto-clear after 10 seconds if it's not and emergency
+                if (trans.type !== 'emergency') {
+                    setTimeout(() => setActiveTransmission(null), 10000);
+                }
+            }
+        }
+
         if (newNotif) {
             addNotification(newNotif);
         }
@@ -148,34 +173,78 @@ const GlobalNotifications = ({ userRole, userData }) => {
 
     return (
         <div className="global-notification-container">
-            {notifications.map(n => {
-                const getIcon = () => {
-                    switch (n.iconType) {
-                        case 'user-plus': return <FaUserPlus />;
-                        case 'book': return <FaBook />;
-                        case 'bullhorn': return <FaBullhorn />;
-                        default: return <FaBell />;
-                    }
-                };
+            <AnimatePresence initial={false}>
+                {notifications.map(n => {
+                    const getIcon = () => {
+                        switch (n.iconType) {
+                            case 'user-plus': return <FaUserPlus />;
+                            case 'book': return <FaBook />;
+                            case 'bullhorn': return <FaBullhorn />;
+                            default: return <FaBell />;
+                        }
+                    };
 
-                return (
-                    <div key={n.id} className={`glass-toast toast-${n.type} animate-toast-in`}>
-                        <div className="toast-icon-box">
-                            {getIcon()}
-                        </div>
-                        <div className="toast-content">
-                            <div className="toast-header">
-                                <span className="toast-title">{n.title}</span>
-                                <span className="toast-time">{n.time}</span>
+                    return (
+                        <motion.div
+                            key={n.id}
+                            layout
+                            initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+                            className={`glass-toast toast-${n.type}`}
+                            style={{ position: 'relative', overflow: 'hidden' }}
+                        >
+                            <div className="sentinel-scanner" style={{ opacity: 0.15 }}></div>
+                            <div className="toast-icon-box" style={{ borderRadius: '10px' }}>
+                                {getIcon()}
                             </div>
-                            <div className="toast-message">{n.message}</div>
+                            <div className="toast-content">
+                                <div className="toast-header">
+                                    <span className="toast-title" style={{ fontWeight: 950, letterSpacing: '0.05em' }}>{n.title.toUpperCase()}</span>
+                                    <span className="toast-time">{n.time}</span>
+                                </div>
+                                <div className="toast-message" style={{ fontWeight: 600, fontSize: '0.8rem' }}>{n.message}</div>
+                            </div>
+                            <button className="toast-close" onClick={() => removeNotification(n.id)}>
+                                <FaTimes />
+                            </button>
+                        </motion.div>
+                    );
+                })}
+            </AnimatePresence>
+
+            {/* HIGH IMPACT SENTINEL TRANSMISSION OVERLAY */}
+            <AnimatePresence>
+                {activeTransmission && (
+                    <motion.div
+                        className={`sentinel-transmission-overlay p-${activeTransmission.priority} type-${activeTransmission.type}`}
+                        initial={{ opacity: 0, scale: 1.1, backdropFilter: 'blur(0px)' }}
+                        animate={{ opacity: 1, scale: 1, backdropFilter: 'blur(10px)' }}
+                        exit={{ opacity: 0, scale: 0.9, backdropFilter: 'blur(0px)' }}
+                    >
+                        <div className="transmission-scanner"></div>
+                        <div className="transmission-content">
+                            <div className="transmission-glitch-header" data-text={activeTransmission.title}>
+                                {activeTransmission.title}
+                            </div>
+                            <div className="transmission-status-bar">
+                                <div className="pulse-dot"></div>
+                                <span>LIVE UPLINK: {new Date(activeTransmission.timestamp).toLocaleTimeString()}</span>
+                                <div className="transmission-divider"></div>
+                                <span>PRIORITY: {activeTransmission.priority.toUpperCase()}</span>
+                            </div>
+                            <div className="transmission-body">
+                                {activeTransmission.message}
+                            </div>
+                            <div className="transmission-footer">
+                                <button className="acknowledge-btn" onClick={() => setActiveTransmission(null)}>
+                                    ACKNOWLEDGE TRANSMISSION
+                                </button>
+                            </div>
                         </div>
-                        <button className="toast-close" onClick={() => removeNotification(n.id)}>
-                            <FaTimes />
-                        </button>
-                    </div>
-                );
-            })}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

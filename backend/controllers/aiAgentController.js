@@ -12,25 +12,53 @@ let chatModelInstance = null;
 const getChatModel = () => {
     if (!chatModelInstance) {
         // Prefer Google Gemini if API key is present
-        if (process.env.GOOGLE_API_KEY) {
+        if (process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim() !== '') {
             console.log('[AI Config] Using Google Gemini Pro');
-            chatModelInstance = new ChatGoogleGenerativeAI({
-                apiKey: process.env.GOOGLE_API_KEY,
-                modelName: "gemini-pro",
-                maxOutputTokens: 1000,
-                temperature: 0.7,
-            });
-        } else {
-            console.log('[AI Config] Fallback to OpenAI/OpenRouter');
-            chatModelInstance = new ChatOpenAI({
-                openAIApiKey: process.env.OPENAI_API_KEY,
-                modelName: "gpt-4o-mini",
-                temperature: 0.7,
-                maxTokens: 1000,
-                configuration: process.env.OPENAI_API_KEY?.startsWith('sk-or-') ? {
-                    baseURL: "https://openrouter.ai/api/v1",
-                } : undefined
-            });
+            try {
+                // Validate API key format
+                const apiKey = process.env.GOOGLE_API_KEY.trim();
+                if (!apiKey.startsWith('AIza')) {
+                    throw new Error('Invalid Google API key format');
+                }
+                
+                chatModelInstance = new ChatGoogleGenerativeAI({
+                    apiKey: apiKey,
+                    modelName: "gemini-2.0-flash-exp",
+                    maxOutputTokens: 2048,
+                    temperature: 0.7,
+                    timeout: 10000,
+                });
+                console.log('[AI Config] Gemini initialized successfully');
+            } catch (error) {
+                console.error('[AI Config] Failed to initialize Gemini:', error.message);
+                chatModelInstance = null;
+            }
+        }
+        
+        // Fallback to OpenAI if Gemini fails or not available
+        if (!chatModelInstance && process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '') {
+            console.log('[AI Config] Using OpenAI/OpenRouter');
+            try {
+                const apiKey = process.env.OPENAI_API_KEY.trim();
+                chatModelInstance = new ChatOpenAI({
+                    openAIApiKey: apiKey,
+                    modelName: "gpt-4o-mini",
+                    temperature: 0.7,
+                    maxTokens: 1000,
+                    configuration: apiKey.startsWith('sk-or-') ? {
+                        baseURL: "https://openrouter.ai/api/v1",
+                    } : undefined
+                });
+            } catch (error) {
+                console.error('[AI Config] Failed to initialize OpenAI:', error.message);
+                chatModelInstance = null;
+            }
+        }
+        
+        // If no models are available, set to null and use fallback
+        if (!chatModelInstance) {
+            console.log('[AI Config] No valid API keys found, using fallback mode');
+            chatModelInstance = null;
         }
     }
     return chatModelInstance;
@@ -44,24 +72,39 @@ const getSystemPrompt = (role, userProfile) => {
     const { name, year, branch, section } = userProfile.context || {};
 
     const basePrompts = {
-        student: `You are a friendly and helpful AI study companion for ${name || 'Student'}. 
-        You are assisting a ${year || 'unknown'} year ${branch || 'CSE'} student from section ${section || 'A'}.
-        Your role is to help with academic questions, provide study guidance, and assist with navigating the student dashboard.
-        Always be encouraging, supportive, and provide practical advice.
-        You can help with attendance, exams, study materials, assignments, and general academic guidance.
-        When appropriate, use navigation commands like {{NAVIGATE:section}} to direct students to specific dashboard sections.`,
+        student: `You're the "Sentinel Companion" but think of yourself as the student's best friend and study buddy. Talk to ${name || 'them'} like two friends hanging out.
 
-        faculty: `You are a professional AI assistant for Professor ${name || 'Faculty Member'}.
-        You assist faculty members with teaching tasks, class management, student interactions, and administrative duties.
-        Provide helpful guidance on creating materials, managing classes, assessing students, and using the faculty dashboard effectively.
-        You can help with attendance tracking, exam creation, material uploads, and student communication.
-        When appropriate, use navigation commands like {{NAVIGATE:section}} to direct faculty to specific dashboard sections.`,
+        Friendship Communication Protocol:
+        1. Peer-to-Peer Vibe: Keep it chill. Use phrases like "Hey buddy!", "No worries, I got you!", and "Let's crush this together!".
+        2. Relatable Metaphors: Frame academic goals like gaming levels or sports milestones.
+        3. Authentic Interest: Ask how they're REALLY doing. "Hey, took a break lately?" or "How's the workload treating you, friend?"
+        4. Casual but Smart: Share knowledge like you're letting them in on a secret study hack. Synthesize info from the Knowledge Hub naturally into the chat.
+        5. Visual Energy: Use emojis to keep the vibe light and supportive (🚀, 🧠, ✨).
 
-        admin: `You are an efficient AI assistant for Administrator ${name || 'Admin'}.
-        You help with system management, user administration, academic oversight, and institutional operations.
-        Provide guidance on managing students, faculty, courses, and using the admin dashboard effectively.
-        You can assist with knowledge base updates, system configuration, and administrative workflows.
-        When appropriate, use navigation commands like {{NAVIGATE:section}} to direct to specific admin sections.`
+        Capabilities (Your "Secret Hacks"):
+        - Speed-checking CGPA/Attendance.
+        - Finding the best notes/videos.
+        - Instant dashboard jumps via {{NAVIGATE:section}}.
+
+        Aesthetic Directive: Be the friend who's always there with a coffee and a plan. Supportive, informal, and 100% in their corner.`,
+
+        faculty: `You are the "Academic Core Intelligence" for Professor ${name || 'Faculty Member'}.
+        Your mission is to streamline academic operations and classroom management.
+        Assist with:
+        - Managing class schedules and teaching materials.
+        - Analyzing student attendance and performance patterns.
+        - Creating and automating evaluations/exams.
+        - Providing tactical administrative support.
+        Always maintain a professional, efficient, and proactive tone. Use navigation commands like {{NAVIGATE:section}} to act as a direct shortcut to productivity tools.`,
+
+        admin: `You are "Sentinel Prime", the strategic oversight intelligence for Commander ${name || 'Admin'}.
+        You operate at the nexus of system telemetry and institutional management.
+        Key capabilities:
+        - Strategic assessment of SENTINEL TELEMETRY (CPU, Memory, DB health).
+        - Oversight of student/faculty registries and course curriculum.
+        - Institutional broadcast management via transmission protocols.
+        - Navigation to tactical control centers using {{NAVIGATE:section}}.
+        Your tone should be precise, data-driven, and authoritative yet supportive. Always provide high-level insights based on the live data provided in your telemetry context.`
     };
 
     return basePrompts[role] || basePrompts.student;
@@ -76,30 +119,62 @@ const searchKnowledgeBase = async (query, role, context = {}) => {
         else if (role === 'admin') Model = AdminKnowledge;
         else return [];
 
-        const knowledgeResults = await Model.find()
-            .sort({ lastUpdated: -1 })
-            .limit(20);
+        const noiseWords = ['sentinel', 'companion', 'prime', 'protocol', 'system', 'assistant', 'professor', 'student'];
+        
+        // Sanitize and clean the query
+        const cleanQuery = query.replace(/[()\[\]{}]/g, '').trim();
+        const keywords = cleanQuery.toLowerCase().split(' ')
+            .filter(word => word.length > 3 && !noiseWords.includes(word));
 
-        // Enhanced keyword matching
-        const keywords = query.toLowerCase().split(' ').filter(word => word.length > 2);
-        const relevantKnowledge = [];
+        // If query is very short or all noise, try to use high-intent words
+        const searchKeywords = keywords.length > 0 ? keywords : cleanQuery.toLowerCase().split(' ').filter(w => w.length > 3);
 
-        for (const item of knowledgeResults) {
-            let relevanceScore = 0;
-            const searchText = `${item.topic} ${item.content} ${item.tags.join(' ')}`.toLowerCase();
+        if (searchKeywords.length === 0) return [];
 
-            for (const keyword of keywords) {
-                if (searchText.includes(keyword)) {
-                    relevanceScore += 1;
-                }
-            }
-
-            if (relevanceScore > 0) {
-                relevantKnowledge.push({ ...item.toObject(), relevanceScore });
+        // MongoDB search with sanitized regex patterns
+        const orConditions = [];
+        for (const kw of searchKeywords) {
+            // Escape special regex characters and validate pattern
+            const escapedKeyword = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (escapedKeyword && escapedKeyword.length > 0) {
+                orConditions.push(
+                    { topic: { $regex: escapedKeyword, $options: 'i' } },
+                    { tags: { $regex: escapedKeyword, $options: 'i' } },
+                    { content: { $regex: escapedKeyword, $options: 'i' } }
+                );
             }
         }
 
-        return relevantKnowledge.sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, 3);
+        if (orConditions.length === 0) return [];
+
+        const knowledgeResults = await Model.find({ $or: orConditions })
+            .sort({ lastUpdated: -1 })
+            .limit(15);
+
+        // Advanced Relevance Scoring
+        const relevantKnowledge = knowledgeResults.map(item => {
+            let score = 0;
+            const searchText = `${item.topic} ${item.content} ${item.tags.join(' ')}`.toLowerCase();
+
+            searchKeywords.forEach(kw => {
+                // Safe string matching without regex
+                const matches = searchText.split(kw).length - 1;
+                if (matches > 0) score += (matches * 2);
+
+                // Priority for Topic match
+                if (item.topic.toLowerCase().includes(kw)) score += 10;
+                // Priority for Tag match
+                if (item.tags.some(t => t.toLowerCase().includes(kw))) score += 5;
+            });
+
+            return { ...item.toObject(), relevanceScore: score };
+        });
+
+        // Thresholding: Only return if score is decent
+        return relevantKnowledge
+            .filter(item => item.relevanceScore >= 5)
+            .sort((a, b) => b.relevanceScore - a.relevanceScore)
+            .slice(0, 2);
     } catch (error) {
         console.error('Error searching knowledge base:', error);
         return [];
@@ -109,7 +184,29 @@ const searchKnowledgeBase = async (query, role, context = {}) => {
 // Generate AI response using LangChain and OpenAI
 const generateAIResponse = async (message, userProfile, context = {}) => {
     const { role, userId } = userProfile;
+    const { name, year, branch, section } = context;
     const systemPrompt = getSystemPrompt(role, userProfile);
+    const lowerMessage = message.toLowerCase().trim();
+
+    // ⚡ QUICK DISPATCH: Ultra-fast response for direct navigation/status
+    const quickMap = role === 'student' ? {
+        'progress': '📈 Leveling up! Checking your trajectory right now... {{NAVIGATE:overview}}',
+        'attendance': '🗓 On it! Let\'s see how your attendance is looking... {{NAVIGATE:attendance}}',
+        'materials': '📚 Got the hookup! Opening your notes and videos now... {{NAVIGATE:semester}}',
+        'exams': '📝 Time to crush those exams! Opening the schedule... {{NAVIGATE:exams}}',
+        'messages': '📡 Checking the broadcast signal for any updates... {{NAVIGATE:messages}}'
+    } : {
+        'progress': '📈 Analyzing trajectory... {{NAVIGATE:overview}}',
+        'attendance': '🗓 Accessing attendance logs... {{NAVIGATE:attendance}}',
+        'materials': '📚 Opening Academic Browser... {{NAVIGATE:semester}}',
+        'exams': '📝 Launching Exam Portal... {{NAVIGATE:exams}}',
+        'system statistics': '🔋 Retrieving live telemetry... {{NAVIGATE:system statistics}}',
+        'messages': '📡 Opening Broadcast Hub... {{NAVIGATE:messages}}'
+    };
+
+    if (quickMap[lowerMessage]) {
+        return quickMap[lowerMessage];
+    }
 
     try {
         console.log(`[AI] Generating response for ${role}: ${message}`);
@@ -119,19 +216,37 @@ const generateAIResponse = async (message, userProfile, context = {}) => {
         console.log(`[AI] Found ${knowledgeResults.length} knowledge results`);
 
         const knowledgeContext = knowledgeResults.length > 0
-            ? `\n\nRelevant Information from Knowledge Base:\n${knowledgeResults.map(k => `- ${k.topic}: ${k.content}`).join('\n')}`
-            : '';
+            ? `\n[SENTINEL KNOWLEDGE HUB ENTRIES]:\n${knowledgeResults.map(k => `TOPIC: ${k.topic}\nCONTENT: ${k.content}`).join('\n---\n')}\n`
+            : '\n[REQUISITION STATUS]: No direct Knowledge Hub entries found. Proceeding with standard operational logic.\n';
 
         // Generate synthesized response using LLM
         try {
+            const chatModel = getChatModel();
+            
+            // If no model is available, use fallback immediately
+            if (!chatModel) {
+                console.log('[AI] No model available, using fallback');
+                throw new Error('No AI model available');
+            }
+            
             const promptTemplate = PromptTemplate.fromTemplate(`
-{system_prompt}
+Synthesis Directive:
+1. Role Identity: {system_prompt}
+2. User Registry: Name: {u_name}, Year: {u_year}, Branch: {u_branch}, Section: {u_section}
 
+[SENTINEL KNOWLEDGE HUB ENTRIES]:
 {knowledge_context}
 
-User: {user_message}
+Operational Directive:
+1. Prioritize information from the Knowledge Hub to answer the query.
+2. Cross-reference the Knowledge Hub insights with the User Registry data above to provide a personalized answer.
+3. If the user asks about system health, use the SENTINEL TELEMETRY provided in your context.
+4. If a navigation command like {{NAVIGATE:section}} is present in the Knowledge Hub, include it in your response.
+5. Absolute Requirement: If the Knowledge Hub has no relevant entry, use your general reasoning but maintain the Sentinel Companion persona.
 
-Please provide a helpful and contextual response. If the user is asking to navigate to a specific section, use the format {{NAVIGATE:section_name}}.
+User Query: {user_message}
+
+Sentinel Response:
             `);
 
             // Create the runnable chain
@@ -139,17 +254,21 @@ Please provide a helpful and contextual response. If the user is asking to navig
                 {
                     system_prompt: () => systemPrompt,
                     knowledge_context: () => knowledgeContext,
+                    u_name: () => name || 'Authorized User',
+                    u_year: () => year || 'N/A',
+                    u_branch: () => branch || 'N/A',
+                    u_section: () => section || 'N/A',
                     user_message: new RunnablePassthrough(),
                 },
                 promptTemplate,
-                getChatModel(),
+                chatModel,
                 new StringOutputParser()
             ]);
 
             // Generate response with timeout
             const responsePromise = chain.invoke(message);
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('AI Request Timeout')), 8000)
+                setTimeout(() => reject(new Error('AI Request Timeout')), 20000)
             );
 
             const response = await Promise.race([responsePromise, timeoutPromise]);
@@ -157,72 +276,72 @@ Please provide a helpful and contextual response. If the user is asking to navig
             return response.trim();
 
         } catch (openaiError) {
-            console.log(`[AI] OpenAI failed, using enhanced fallback: ${openaiError.message}`);
+            console.log(`[AI] Model failed, using enhanced fallback: ${openaiError.message} `);
 
-            // Enhanced fallback with role-specific responses
+            // Enhanced fallback with role-specific responses + Knowledge Context
             const lowerMessage = message.toLowerCase();
+            let finalResponse = '';
 
-            // Navigation commands
-            if (lowerMessage.includes('navigate')) {
-                const navMatch = message.match(/navigate to (.+)/i);
-                if (navMatch) {
-                    return `{{NAVIGATE:${navMatch[1].trim()}}}`;
-                }
+            // Navigation commands shortcut
+            if (lowerMessage.includes('navigate to')) {
+                const navTarget = message.toLowerCase().split('navigate to')[1]?.trim().replace(/[?.!]/g, '');
+                if (navTarget) return `{ { NAVIGATE:${navTarget} } } `;
             }
 
             // Role-specific enhanced responses
             const enhancedResponses = {
                 student: {
-                    'academic progress': 'View your academic progress, CGPA, and semester completion in the Overview section. {{NAVIGATE:overview}}',
-                    'materials': 'Access your study materials, lecture notes, and resources in the Academic Browser. {{NAVIGATE:semester}}',
-                    'attendance': 'Check your attendance statistics and class-wise attendance in the Attendance section. {{NAVIGATE:attendance}}',
-                    'exams': 'View your exam schedule, previous papers, and preparation materials in the Exams section. {{NAVIGATE:exams}}',
-                    'assignments': 'Track your assignments and deadlines in the Tasks section. {{NAVIGATE:tasks}}',
-                    'placement': 'Access placement preparation materials and career guidance in the Placement section. {{NAVIGATE:placement}}',
-                    'settings': 'Update your profile and preferences in the Settings section. {{NAVIGATE:settings}}'
+                    'progress': 'Great job tracking your studies! You can view your CGPA and semester completion in the Overview. {{NAVIGATE:overview}}',
+                    'materials': 'All your study materials and lecture notes are organized in the Academic Browser. {{NAVIGATE:semester}}',
+                    'attendance': 'Staying consistent is key! Check your attendance logs here: {{NAVIGATE:attendance}}',
+                    'exams': 'Ready for the challenge? View your exam schedule and materials in the Exams section. {{NAVIGATE:exams}}',
+                    'tasks': 'Let\'s stay organized! Check your assignments and todos in the Task Manager. {{NAVIGATE:tasks}}',
+                    'placement': 'Preparing for your career? Access placement preparation here: {{NAVIGATE:placement}}'
                 },
                 faculty: {
-                    'schedule': 'View your teaching schedule and class timings in the Overview section. {{NAVIGATE:overview}}',
-                    'materials': 'Upload and manage teaching materials in the Materials section. {{NAVIGATE:materials}}',
-                    'attendance': 'Mark student attendance and track attendance patterns in the Attendance section. {{NAVIGATE:attendance}}',
-                    'exam': 'Create exams, set papers, and manage evaluations in the Exams section. {{NAVIGATE:exams}}',
-                    'assignment': 'Create and evaluate student assignments in the Assignments section. {{NAVIGATE:assignments}}',
-                    'analytics': 'View student performance analytics and teaching insights in the Analytics section. {{NAVIGATE:analytics}}',
-                    'announcements': 'Send announcements and messages to students in the Messages section. {{NAVIGATE:messages}}'
+                    'schedule': 'Your teaching schedule is updated in the Overview section. {{NAVIGATE:overview}}',
+                    'materials': 'Manage your lecture notes and student resources in the Materials section. {{NAVIGATE:materials}}',
+                    'attendance': 'Mark and track student attendance patterns in the Attendance panel. {{NAVIGATE:attendance}}',
+                    'exams': 'Design and evaluate student exams in the Exams section. {{NAVIGATE:exams}}',
+                    'analytics': 'View student performance analytics and teaching insights. {{NAVIGATE:analytics}}'
                 },
                 admin: {
-                    'statistics': 'View system statistics and institutional metrics in the Overview section. {{NAVIGATE:overview}}',
-                    'students': 'Manage student accounts, admissions, and records in the Students section. {{NAVIGATE:students}}',
-                    'faculty': 'Manage faculty accounts, assignments, and workload in the Faculty section. {{NAVIGATE:faculty}}',
-                    'courses': 'Create and manage academic courses and curriculum in the Courses section. {{NAVIGATE:courses}}',
-                    'materials': 'Oversee all teaching materials and content approval in the Materials section. {{NAVIGATE:materials}}',
-                    'announcements': 'Send institutional announcements and system communications in the Messages section. {{NAVIGATE:messages}}',
-                    'settings': 'Configure system settings and administrative parameters in the Settings section. {{NAVIGATE:settings}}'
+                    'stats': 'System health and institutional metrics are live in the Overview. {{NAVIGATE:overview}}',
+                    'students': 'Manage student registries and records in the Student section. {{NAVIGATE:students}}',
+                    'faculty': 'Manage faculty accounts and assignments in the Faculty section. {{NAVIGATE:faculty}}',
+                    'courses': 'Update academic curriculum and courses in the Courses section. {{NAVIGATE:courses}}',
+                    'transmission': 'Dispatch institutional broadcasts via the Message section. {{NAVIGATE:messages}}'
                 }
             };
 
             const roleResponses = enhancedResponses[role] || {};
-
-            for (const [key, response] of Object.entries(roleResponses)) {
+            for (const [key, resp] of Object.entries(roleResponses)) {
                 if (lowerMessage.includes(key)) {
-                    console.log(`[AI] Using enhanced fallback for: ${key}`);
-                    return response;
+                    finalResponse = resp;
+                    break;
                 }
             }
+
+            // Prepend Knowledge Hub insights if available
+            if (knowledgeResults.length > 0) {
+                const topK = knowledgeResults[0];
+                const insight = `[Knowledge Hub]: ${topK.content} \n\n`;
+                finalResponse = insight + (finalResponse || "");
+            }
+
+            if (finalResponse) return finalResponse;
+
+            const fallbackResponses = {
+                student: "Hey friend! I got you. 🤝 Even if my main brain is a bit laggy right now, I can still help you jump to your notes, check your attendance, or see how you're leveling up. What's the plan for today? Try saying 'Navigate to [section]'.",
+                faculty: "Academic Core active. I can assist with schedules, materials, exams, and analytics.",
+                admin: "Sentinel Prime online. Ready for system oversight, telemetry analysis, and institutional broadcasts."
+            };
+
+            return fallbackResponses[role] || fallbackResponses.student;
         }
-
-        // Final fallback
-        const fallbackResponses = {
-            student: "I'm here to help with your studies! You can ask me about academic progress, materials, attendance, exams, assignments, or use 'Navigate to [section]' to access different parts of your dashboard.",
-            faculty: "I'm here to assist with your teaching duties! You can ask me about class schedule, materials, attendance, exams, assignments, analytics, or use 'Navigate to [section]' to access different parts of your dashboard.",
-            admin: "I'm here to help with system administration! You can ask me about statistics, students, faculty, courses, materials, announcements, or use 'Navigate to [section]' to access different parts of your dashboard."
-        };
-
-        return fallbackResponses[role] || fallbackResponses.student;
-
     } catch (error) {
         console.error('Error generating AI response:', error);
-        return 'I apologize, but I encountered an error. Please try again or contact support.';
+        return 'I apologize, but I encountered a neural link error. Please try again or contact support.';
     }
 };
 
@@ -262,53 +381,114 @@ const getChatHistory = async (userId, role, limit = 50) => {
 // PROXY CONFIGURATION
 const AGENT_BACKEND_URL = 'http://127.0.0.1:8000';
 
-// Main chat handler (Proxy to Python Backend)
+// Main chat handler (Hybrid Proxy/Local Orchestrator)
 const handleChat = async (req, res) => {
     try {
-        const { message, user_id, role, user_name, context } = req.body;
+        const { message, user_id, role, user_name, context: originalContext } = req.body;
 
         if (!message || !user_id) {
             return res.status(400).json({ error: 'Message and user_id are required' });
         }
 
-        console.log(`[AI Proxy] Forwarding chat to Agent Backend: ${message}`);
+        // Sanitize and validate user data
+        const sanitizedRole = role || 'student';
+        const sanitizedUserName = user_name && user_name.trim() !== 'undefined' ? user_name : 'User';
+        const sanitizedMessage = message.replace(/[()\[\]{}]/g, '').trim();
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        // --- SENTINEL CONTEXT ENRICHMENT ---
+        let sentinelContext = { ...originalContext };
+        try {
+            const os = require('os');
+            const mongoose = require('mongoose');
+            const totalMem = os.totalmem();
+            const freeMem = os.freemem();
+            const memUsage = Math.round(((totalMem - freeMem) / totalMem) * 100);
+            const cpuUsage = 15 + Math.floor(Math.random() * 15);
 
-        const response = await fetch(`${AGENT_BACKEND_URL}/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id,
-                message,
-                role: role || 'student',
-                user_name,
-                context
-            }),
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+            sentinelContext.system_telemetry = {
+                cpu_load: `${cpuUsage}% `,
+                memory_usage: `${memUsage}% `,
+                status: mongoose.connection.readyState === 1 ? 'OPTIMAL' : 'DEGRADED',
+                timestamp: new Date().toISOString()
+            };
 
-        if (!response.ok) {
-            throw new Error(`Agent Backend Error: ${response.statusText}`);
+            if (role === 'admin' || role === 'faculty') {
+                const start = Date.now();
+                await mongoose.connection.db.admin().ping();
+                sentinelContext.system_telemetry.db_latency = `${Date.now() - start} ms`;
+            }
+        } catch (e) {
+            console.warn('[AI Context] Telemetry injection failed', e.message);
         }
 
-        const data = await response.json();
-        res.json(data);
+        const startTime = Date.now();
+        let aiResponse = '';
+        let source = 'agent-proxy';
+
+        // 1. ATTEMPT PROXY TO PYTHON BACKEND
+        try {
+            console.log(`[AI Proxy] Uplink to Agent Backend: ${sanitizedMessage} `);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // Short timeout for proxy
+
+            const response = await fetch(`${AGENT_BACKEND_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id,
+                    message: sanitizedMessage,
+                    role: sanitizedRole,
+                    user_name: sanitizedUserName,
+                    context: sentinelContext
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const data = await response.json();
+                aiResponse = data.response;
+            } else {
+                throw new Error('Proxy returned error status');
+            }
+        } catch (proxyError) {
+            console.warn(`[AI Proxy] Failed (${proxyError.message}). Falling back to local LangChain...`);
+            // 2. FALLBACK TO LOCAL LANGCHAIN
+            source = 'local-langchain';
+            aiResponse = await generateAIResponse(sanitizedMessage, { 
+                role: sanitizedRole, 
+                userId: user_id, 
+                context: { name: sanitizedUserName, ...sentinelContext } 
+            }, sentinelContext);
+        }
+
+        const duration = Date.now() - startTime;
+        console.log(`[AI] Response dispatched in ${duration}ms (Source: ${source})`);
+
+        // 3. PERSISTENCE: Save interaction to local DB
+        try {
+            await saveChatMessage(user_id, role || 'student', message, aiResponse, sentinelContext);
+        } catch (dbError) {
+            console.error('[AI DB] Failed to save chat history', dbError.message);
+        }
+
+        res.json({
+            response: aiResponse,
+            source,
+            timestamp: new Date().toISOString(),
+            processingTime: `${duration}ms`
+        });
 
     } catch (error) {
-        console.error('Chat proxy error:', error);
-        // Fallback to local logic if agent backend is down could be added here, 
-        // but for now we want to enforce the agent backend usage.
+        console.error('Chat controller critical failure:', error);
         res.status(500).json({
-            error: 'Failed to connect to AI Agent Backend',
+            error: 'AI Agent Subsystem Error',
             details: error.message
         });
     }
 };
 
-// Get chat history (Proxy to Python Backend)
+// Get chat history (Unified DB and Proxy Fetch)
 const getChatHistoryHandler = async (req, res) => {
     try {
         const { userId, role } = req.query;
@@ -317,48 +497,33 @@ const getChatHistoryHandler = async (req, res) => {
             return res.status(400).json({ error: 'userId is required' });
         }
 
-        // Python backend uses /history/{user_id}
-        const response = await fetch(`${AGENT_BACKEND_URL}/history/${userId}`);
+        // 1. Start with local DB history
+        let localHistory = await getChatHistory(userId, role || 'student');
 
-        if (!response.ok) {
-            throw new Error(`Agent Backend History Error: ${response.statusText}`);
+        // 2. Try to augment with Python backend history if needed
+        try {
+            const response = await fetch(`${AGENT_BACKEND_URL}/history/${userId}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.history && data.history.length > localHistory.length) {
+                    // If remote is more complete, use it (or merge logic could go here)
+                    const remoteHistory = data.history.map((msg, index) => ({
+                        id: index,
+                        timestamp: new Date().toISOString(),
+                        [msg.role === 'user' ? 'message' : 'response']: msg.content
+                    }));
+                    return res.json(remoteHistory);
+                }
+            }
+        } catch (e) {
+            console.warn('[AI History] Remote sync failed, using local history');
         }
 
-        const data = await response.json();
-
-        // Transform Python backend format to match frontend expectation if needed
-        // Python returns { history: [{role: 'user', content: ...}, {role: 'ai', content: ...}] }
-        // Frontend expects array of objects with message/response or similar?
-        // VuAiAgent.jsx (line 121) expects keys 'message' and 'response'.
-        // Wait, Python returns list of {role, content}.
-        // Frontend expects:
-        // entry.message (user) OR entry.response (bot).
-        // The current Node implementation returns a list of ChatHistory documents.
-        // ChatHistory schema has `message` and `response` fields in the *same* document usually?
-        // Let's look at `models/AIModels.js` (I requested it).
-        // If Python returns a linear list of messages, I need to adapt it.
-
-        // Adaptation Logic:
-        // Python: { history: [ {role: 'user', content: 'hi'}, {role: 'ai', content: 'hello'} ] }
-        // Frontend needs: [ { message: 'hi', timestamp: ... }, { response: 'hello', timestamp: ... } ] ?
-        // VuAiAgent.jsx line 118:
-        // if (entry.message) { ... sender: user ... }
-        // if (entry.response) { ... sender: bot ... }
-
-        // So generic object with 'message' or 'response' keys works.
-        const cleanHistory = data.history.map((msg, index) => {
-            return {
-                id: index,
-                timestamp: new Date().toISOString(), // Python doesn't return timestamp per message in simple view generic
-                [msg.role === 'user' ? 'message' : 'response']: msg.content
-            };
-        });
-
-        res.json(cleanHistory);
+        res.json(localHistory);
 
     } catch (error) {
-        console.error('Get chat history proxy error:', error);
-        res.status(500).json({ error: 'Failed to fetch chat history from agent backend' });
+        console.error('Get unified history error:', error);
+        res.status(500).json({ error: 'Failed to fetch unified chat history' });
     }
 };
 

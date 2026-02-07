@@ -12,7 +12,7 @@ const attendanceSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// Composite index for quick lookups
-attendanceSchema.index({ studentId: 1, date: 1, subject: 1 }, { unique: true });
+// Composite index for quick lookups - allows one record per student per period per day
+attendanceSchema.index({ studentId: 1, date: 1, period: 1 }, { unique: true });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

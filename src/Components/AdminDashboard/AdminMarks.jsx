@@ -53,9 +53,9 @@ const AdminMarks = () => {
     if (loading) {
         return (
             <div className="admin-marks-container">
-                <div className="loading-state">
-                    <div className="spinner"></div>
-                    <p>Loading marks overview...</p>
+                <div className="f-loader-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', padding: '10rem' }}>
+                    <div className="sentinel-scanner" style={{ width: '100%', maxWidth: '300px', height: '4px' }}></div>
+                    <p style={{ fontWeight: 950, letterSpacing: '0.2em', color: '#94a3b8', fontSize: '0.8rem' }}>SYNCING PERFORMANCE DATA...</p>
                 </div>
             </div>
         );
@@ -65,8 +65,8 @@ const AdminMarks = () => {
         <div className="admin-marks-container animate-fade-in">
             <header className="admin-page-header">
                 <div className="admin-page-title">
-                    <h1>MARKS & GRADES <span>OVERVIEW</span></h1>
-                    <p>Class performance analysis and subject-wise averages</p>
+                    <h1>INTEL <span>PERFORMANCE</span></h1>
+                    <p>Strategic analysis of academic progress and grade distribution</p>
                 </div>
             </header>
 
@@ -85,16 +85,14 @@ const AdminMarks = () => {
                         <option value="4">Year 4</option>
                     </select>
 
-                    <select
+                    <input
+                        type="text"
                         value={filters.section}
                         onChange={(e) => setFilters({ ...filters, section: e.target.value })}
-                        className="filter-select"
-                    >
-                        <option value="">All Sections</option>
-                        {['A', 'B', 'C', 'D', 'E', 'F'].map(s => (
-                            <option key={s} value={s}>Section {s}</option>
-                        ))}
-                    </select>
+                        className="filter-input"
+                        placeholder="Section (e.g. A, B)"
+                        style={{ padding: '0.8rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', minWidth: '150px' }}
+                    />
 
                     <button className="filter-reset" onClick={() => setFilters({ year: '', section: '', subject: '' })} style={{ marginLeft: 'auto' }}>
                         RESET FILTERS
@@ -102,47 +100,35 @@ const AdminMarks = () => {
                 </div>
             </div>
 
-            <div className="stats-grid">
-                <div className="stat-card primary">
-                    <div className="stat-icon">
-                        <FaUsers />
-                    </div>
-                    <div className="stat-content">
-                        <div className="stat-value">{overview?.totalStudents || 0}</div>
-                        <div className="stat-label">Total Students</div>
-                    </div>
+            <div className="admin-stats-grid mb-lg">
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#e0e7ff', color: '#6366f1', width: '50px', height: '50px', borderRadius: '14px' }}><FaUsers /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{overview?.totalStudents || 0}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>ANALYZED PERSONNEL</div>
                 </div>
 
-                <div className="stat-card success">
-                    <div className="stat-icon">
-                        <FaBook />
-                    </div>
-                    <div className="stat-content">
-                        <div className="stat-value">{overview?.subjectsAnalyzed?.length || 0}</div>
-                        <div className="stat-label">Subjects Analyzed</div>
-                    </div>
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#dcfce7', color: '#10b981', width: '50px', height: '50px', borderRadius: '14px' }}><FaBook /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{overview?.subjectsAnalyzed?.length || 0}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>KNOWLEDGE SECTORS</div>
                 </div>
 
-                <div className="stat-card warning">
-                    <div className="stat-icon">
-                        <FaTrophy />
-                    </div>
-                    <div className="stat-content">
-                        <div className="stat-value">{overview?.overallAverage || 0}%</div>
-                        <div className="stat-label">Class Average</div>
-                    </div>
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-2s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#fef3c7', color: '#f59e0b', width: '50px', height: '50px', borderRadius: '14px' }}><FaTrophy /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{overview?.overallAverage || 0}%</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>GLOBAL AGGREGATE</div>
                 </div>
 
-                <div className="stat-card accent">
-                    <div className="stat-icon">
-                        <FaChartBar />
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-3s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#f3e8ff', color: '#8b5cf6', width: '50px', height: '50px', borderRadius: '14px' }}><FaChartBar /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>
+                        {overview?.averagesBySubject ? Object.keys(overview.averagesBySubject).length : 0}
                     </div>
-                    <div className="stat-content">
-                        <div className="stat-value">
-                            {overview?.averagesBySubject ? Object.keys(overview.averagesBySubject).length : 0}
-                        </div>
-                        <div className="stat-label">Active Assessments</div>
-                    </div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>LIVE EVALUATIONS</div>
                 </div>
             </div>
 
@@ -152,11 +138,12 @@ const AdminMarks = () => {
 
                 {overview && overview.averagesBySubject && Object.keys(overview.averagesBySubject).length > 0 ? (
                     <div className="subject-cards-grid">
-                        {Object.entries(overview.averagesBySubject).map(([subject, data]) => (
-                            <div key={subject} className="subject-performance-card">
+                        {Object.entries(overview.averagesBySubject).map(([subject, data], idx) => (
+                            <div key={subject} className="subject-performance-card sentinel-floating" style={{ animationDelay: `${idx * -0.5}s` }}>
+                                <div className="sentinel-scanner"></div>
                                 <div className="subject-header">
-                                    <FaBook />
-                                    <h4>{subject}</h4>
+                                    <FaBook style={{ color: '#6366f1' }} />
+                                    <h4 style={{ fontWeight: 950 }}>{subject}</h4>
                                 </div>
 
                                 <div className="percentage-display">

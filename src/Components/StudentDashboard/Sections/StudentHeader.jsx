@@ -10,7 +10,7 @@ const StudentHeader = ({ view }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -26,7 +26,7 @@ const StudentHeader = ({ view }) => {
             <div className="header-right">
                 <div className="header-time-box">
                     <span className="time-val">
-                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                     <span className="date-val">
                         {currentTime.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}

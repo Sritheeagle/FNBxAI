@@ -104,20 +104,21 @@ const FacultyAnalytics = ({ facultyId, materialsList = [], studentsList = [] }) 
                 {analyticsCards.map((card, idx) => (
                     <div
                         key={idx}
-                        className={`f-stats-card ${(card.type === 'students' || card.type === 'downloads') ? 'interactive' : ''}`}
+                        className={`f-stats-card sentinel-floating ${card.type === 'students' || card.type === 'downloads' ? 'interactive' : ''}`}
                         onClick={() => (card.type === 'students' || card.type === 'downloads') && openRegistry(card.type)}
-                        style={{ borderLeft: `4px solid ${card.stroke}` }}
+                        style={{ borderLeft: `4px solid ${card.stroke}`, animationDelay: `${idx * -1.5}s`, position: 'relative', overflow: 'hidden' }}
                     >
+                        <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: card.stroke, opacity: 0.2 }}></div>
                         <div className="f-stats-header">
                             <div>
-                                <div className="f-stats-label" style={{ letterSpacing: '0.05em', fontWeight: 900, color: '#94a3b8' }}>{card.label}</div>
-                                <div className="f-stats-value" style={{ fontSize: '2rem', fontWeight: 950, color: '#1e293b' }}>{card.value}</div>
+                                <div className="f-stats-label" style={{ letterSpacing: '0.1em', fontWeight: 950, color: '#94a3b8', fontSize: '0.65rem' }}>{card.label}</div>
+                                <div className="f-stats-value" style={{ fontSize: '2.25rem', fontWeight: 950, color: '#1e293b', letterSpacing: '-0.02em' }}>{card.value}</div>
                             </div>
-                            <div className="f-stats-icon-box" style={{ background: card.bg, width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.4rem' }}>
+                            <div className="f-stats-icon-box" style={{ background: card.bg, width: '60px', height: '60px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.6rem', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
                                 {card.icon}
                             </div>
                         </div>
-                        <div className="f-stats-progress-wrap" style={{ height: '6px', background: '#f1f5f9', borderRadius: '10px', marginTop: '1.5rem', overflow: 'hidden' }}>
+                        <div className="f-stats-progress-wrap" style={{ height: '6px', background: 'rgba(226, 232, 240, 0.5)', borderRadius: '10px', marginTop: '1.5rem', overflow: 'hidden' }}>
                             <div className="f-stats-progress-bar" style={{
                                 height: '100%',
                                 width: card.type === 'engagement' ? card.value :
@@ -128,8 +129,8 @@ const FacultyAnalytics = ({ facultyId, materialsList = [], studentsList = [] }) 
                             }}></div>
                         </div>
                         {(card.type === 'students' || card.type === 'downloads') && (
-                            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: card.stroke, fontSize: '0.7rem', fontWeight: 850 }}>
-                                <FaSatellite style={{ fontSize: '0.8rem' }} /> TAP TO VIEW REGISTRY
+                            <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: card.stroke, fontSize: '0.65rem', fontWeight: 950, letterSpacing: '0.05em' }}>
+                                <FaSatellite style={{ fontSize: '0.8rem' }} /> UPLINK: VIEW REGISTRY
                             </div>
                         )}
                     </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaLayerGroup, FaClock, FaCheckCircle, FaBookOpen, FaTimes, FaFilter, FaEye } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { apiGet, apiPost } from '../../../utils/apiClient';
+import sseClient from '../../../utils/sseClient';
 import '../FacultyDashboard.css';
 
 /**
@@ -22,6 +24,7 @@ const FacultyCurriculumArch = ({ myClasses = [], materialsList = [], currentFacu
   });
 
   // Ensure current subject exists in data
+  // Create defaults if missing
   useEffect(() => {
     if (!curriculumData[activeSubject]) {
       const initial = {};
@@ -43,6 +46,39 @@ const FacultyCurriculumArch = ({ myClasses = [], materialsList = [], currentFacu
     }
   }, [activeSubject, curriculumData]);
 
+  // Sync with Backend
+  useEffect(() => {
+    if (!activeSubject) return;
+    apiGet(`/api/curriculum?subject=${encodeURIComponent(activeSubject)}`)
+      .then(data => {
+        if (data && data.units) {
+          const map = {};
+          data.units.forEach(u => map[u.name] = u);
+          setCurriculumData(prev => ({ ...prev, [activeSubject]: map }));
+        }
+      })
+      .catch(e => console.error("Curriculum sync error", e));
+  }, [activeSubject]);
+
+  // Real-time updates
+  useEffect(() => {
+    const unsub = sseClient.onUpdate((ev) => {
+      if (ev && ev.resource === 'curriculum') {
+        if (!activeSubject) return;
+        apiGet(`/api/curriculum?subject=${encodeURIComponent(activeSubject)}`)
+          .then(data => {
+            if (data && data.units) {
+              const map = {};
+              data.units.forEach(u => map[u.name] = u);
+              setCurriculumData(prev => ({ ...prev, [activeSubject]: map }));
+            }
+          })
+          .catch(e => console.error("SSE Sync error", e));
+      }
+    });
+    return unsub;
+  }, [activeSubject]);
+
   const updateSubsection = (subj, unit, subsectionId, field, value) => {
     setCurriculumData(prev => ({
       ...prev,
@@ -58,9 +94,28 @@ const FacultyCurriculumArch = ({ myClasses = [], materialsList = [], currentFacu
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Local Backup
     localStorage.setItem('curriculumArch_v2', JSON.stringify(curriculumData));
-    setEditMode(false);
+
+    // Server Sync
+    try {
+      const cls = myClasses.find(c => c.subject === activeSubject);
+      const year = cls ? cls.year : '1';
+      const unitsArray = Object.values(curriculumData[activeSubject] || {});
+
+      await apiPost('/api/curriculum', {
+        subject: activeSubject,
+        year: year,
+        branch: 'Common', // Or derive from class
+        units: unitsArray
+      });
+      setEditMode(false);
+    } catch (e) {
+      console.error('Save failed', e);
+      // Fallback to local only (already done)
+      setEditMode(false);
+    }
   };
 
   const currentSubjectData = curriculumData[activeSubject] || {};
@@ -71,7 +126,7 @@ const FacultyCurriculumArch = ({ myClasses = [], materialsList = [], currentFacu
       <header className="f-view-header">
         <div>
           <h2>CURRICULUM <span>PLANNER</span></h2>
-          <p className="nexus-subtitle">Managing syllabus for: <strong>{activeSubject}</strong></p>
+          <p className="nexus-subtitle">Developing intelligence assets for: <strong>{activeSubject}</strong></p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <div className="f-pill-control" style={{ minWidth: '200px' }}>
@@ -117,9 +172,10 @@ const FacultyCurriculumArch = ({ myClasses = [], materialsList = [], currentFacu
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '2rem' }}>
-        <div className="f-node-card" style={{ padding: '1.5rem', height: 'fit-content' }}>
+        <div className="f-node-card sentinel-floating" style={{ padding: '1.5rem', height: 'fit-content', animationDelay: '0s', position: 'relative', overflow: 'hidden' }}>
+          <div className="sentinel-scanner"></div>
           <div className="f-node-head" style={{ marginBottom: '1.5rem' }}>
-            <h4 className="f-node-title" style={{ fontSize: '0.9rem' }}><FaLayerGroup /> CHAPTERS</h4>
+            <h4 className="f-node-title" style={{ fontSize: '0.9rem' }}><FaLayerGroup /> CHAPTER NODES</h4>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {units.map(unit => (
@@ -137,10 +193,13 @@ const FacultyCurriculumArch = ({ myClasses = [], materialsList = [], currentFacu
                   fontWeight: 900,
                   textAlign: 'left',
                   cursor: 'pointer',
-                  transition: '0.2s'
+                  transition: '0.2s',
+                  position: 'relative',
+                  overflow: 'hidden'
                 }}
               >
                 {unit}
+                {activeSection === unit && <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: '#fff' }}></div>}
               </button>
             ))}
           </div>
@@ -245,24 +304,24 @@ const FacultyCurriculumArch = ({ myClasses = [], materialsList = [], currentFacu
                 }
 
                 return (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
                     {filtered.map((m, i) => (
-                      <div key={i} className="f-roster-item" style={{ padding: '1rem', background: 'white', border: '1px solid #f1f5f9', borderRadius: '12px' }}>
+                      <div key={i} className="f-roster-item sentinel-floating" style={{ padding: '1rem', background: 'white', border: '1px solid #f1f5f9', borderRadius: '16px', animationDelay: `${i * -0.5}s` }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <div style={{ padding: '0.6rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--nexus-primary)', borderRadius: '10px' }}>
+                          <div style={{ padding: '0.6rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--nexus-primary)', borderRadius: '10px', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}>
                             <FaBookOpen />
                           </div>
                           <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 850, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.title}</div>
-                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>{m.type?.toUpperCase()} • By {m.uploadedBy?.name || m.uploadedBy || 'Instructor'}</div>
+                            <div style={{ fontWeight: 950, fontSize: '0.85rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.title}</div>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.type?.toUpperCase()} • {m.uploadedBy?.name || m.uploadedBy || 'Instructor'}</div>
                           </div>
                           <button
                             onClick={() => window.open(getFileUrl(m), '_blank')}
                             className="f-node-btn view"
-                            style={{ width: '32px', height: '32px' }}
+                            style={{ width: '36px', height: '36px', borderRadius: '10px' }}
                             title="Quick View"
                           >
-                            <FaEye size={14} />
+                            <FaEye size={16} />
                           </button>
                         </div>
                       </div>

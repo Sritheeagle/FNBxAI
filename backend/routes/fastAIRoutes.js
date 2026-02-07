@@ -8,7 +8,7 @@ const {
     getChatHistoryFast,
     batchProcessRequests,
     monitorPerformance
-} = require('../controllers/optimizedAIController');
+} = require('../controllers/aiAgentController');
 
 // Fast AI Chat endpoint with performance monitoring
 router.post('/chat', async (req, res) => {

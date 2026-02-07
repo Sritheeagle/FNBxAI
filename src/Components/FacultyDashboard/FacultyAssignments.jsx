@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaPlus, FaSave, FaTrash, FaClipboardList, FaCalendarAlt, FaBook, FaUsers, FaFilter } from 'react-icons/fa';
 import { apiGet, apiPost, apiDelete } from '../../utils/apiClient';
+import sseClient from '../../utils/sseClient';
 import './FacultyAssignments.css';
 
 const FacultyAssignments = ({ facultyId }) => {
@@ -30,6 +31,13 @@ const FacultyAssignments = ({ facultyId }) => {
 
     useEffect(() => {
         fetchAssignments();
+
+        const unsub = sseClient.onUpdate((ev) => {
+            if (ev && ev.resource === 'assignments') {
+                fetchAssignments();
+            }
+        });
+        return unsub;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [facultyId]);
 
@@ -96,7 +104,7 @@ const FacultyAssignments = ({ facultyId }) => {
                             </div>
                             <div className="nexus-group">
                                 <label className="f-form-label"><FaUsers /> Operational Section</label>
-                                <input name="section" className="f-form-select" placeholder="e.g. A" value={formData.section} onChange={handleChange} required />
+                                <input name="section" className="f-form-select" placeholder="e.g. A, B" value={formData.section} onChange={handleChange} required />
                             </div>
                             <div className="nexus-group">
                                 <label className="f-form-label"><FaBook /> Subject Node</label>
@@ -168,25 +176,31 @@ const FacultyAssignments = ({ facultyId }) => {
                         </div>
                     </div>
 
-                    <div className="f-exam-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
-                        {assignments.filter(a => selectedSectionFilter === 'All' || `${a.year}-${a.section}` === selectedSectionFilter).map(a => (
-                            <div key={a.id || a._id} className="f-node-card animate-slide-up" style={{ padding: '2rem', position: 'relative' }}>
+                    <div className="f-exam-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '2rem' }}>
+                        {assignments.filter(a => selectedSectionFilter === 'All' || `${a.year}-${a.section}` === selectedSectionFilter).map((a, i) => (
+                            <div key={a.id || a._id} className="f-node-card sentinel-floating" style={{ padding: '2rem', position: 'relative', animationDelay: `${i * -0.5}s` }}>
+                                <div className="sentinel-scanner" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'var(--accent-primary)', opacity: 0.3 }}></div>
                                 <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--accent-primary)' }}></div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                                     <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                        <div style={{ background: '#f1f5f9', color: '#475569', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.6rem', fontWeight: 950 }}>Y{a.year}</div>
-                                        <div style={{ background: '#f1f5f9', color: '#475569', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.6rem', fontWeight: 950 }}>S{a.section}</div>
+                                        <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 950 }}>YEAR {a.year}</div>
+                                        <div style={{ background: '#f1f5f9', color: '#475569', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 950 }}>SEC {a.section}</div>
                                     </div>
-                                    <button onClick={() => handleDelete(a.id || a._id)} className="f-quick-btn shadow delete" style={{ width: '32px', height: '32px' }}><FaTrash /></button>
+                                    <button onClick={() => handleDelete(a.id || a._id)} className="f-quick-btn shadow delete" style={{ width: '32px', height: '32px', borderRadius: '8px' }}><FaTrash /></button>
+                                </div>
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <h4 style={{ fontSize: '1.25rem', fontWeight: 950, color: '#1e293b', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{a.title}</h4>
+                                    <div style={{ color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.subject}</div>
                                 </div>
 
-                                <h4 style={{ fontSize: '1.15rem', fontWeight: 950, color: '#1e293b', margin: '0 0 0.5rem' }}>{a.title}</h4>
-                                <div style={{ color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 900, marginBottom: '1.25rem', textTransform: 'uppercase' }}>{a.subject}</div>
-
-                                <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
-                                    <p style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 700, margin: 0, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                                    <p style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 700, margin: 0, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                         {a.description || 'No operational parameters provided.'}
                                     </p>
+                                </div>
+                                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 850 }}>NODE ID: {(a.id || a._id || '').slice(-8).toUpperCase()}</span>
+                                    <span style={{ fontSize: '0.65rem', color: '#10b981', fontWeight: 950, letterSpacing: '0.05em' }}>ACTIVE UPLINK</span>
                                 </div>
                             </div>
                         ))}

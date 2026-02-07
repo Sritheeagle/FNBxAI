@@ -6,7 +6,6 @@ const facultySchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     department: { type: String, default: 'CSE' },
-    department: { type: String, default: 'CSE' },
     assignments: [{
         year: String,
         section: String,
@@ -15,6 +14,7 @@ const facultySchema = new mongoose.Schema({
         semester: String
     }],
     subjects: [{ type: String }], // Keep for backward compatibility if needed
+    profilePic: { type: String }, // Path to image in their specific folder
     folderPath: { type: String }, // uploads/faculty/{facultyId}
     createdAt: { type: Date, default: Date.now }
 });

@@ -30,7 +30,7 @@ const SystemNodeMap = ({ studentsCount = 0, facultyCount = 0, materialsCount = 0
     ];
 
     return (
-        <div className="node-map-container" style={{
+        <div className="node-map-container sentinel-floating" style={{
             height: '400px',
             width: '100%',
             background: 'rgba(255, 255, 255, 0.5)',
@@ -43,6 +43,7 @@ const SystemNodeMap = ({ studentsCount = 0, facultyCount = 0, materialsCount = 0
             justifyContent: 'center',
             marginTop: '2rem'
         }}>
+            <div className="sentinel-scanner"></div>
             {/* Grid Pattern Background */}
             <div style={{
                 position: 'absolute',
@@ -51,6 +52,7 @@ const SystemNodeMap = ({ studentsCount = 0, facultyCount = 0, materialsCount = 0
                 backgroundSize: '30px 30px',
                 opacity: 0.5
             }} />
+
 
             <div style={{ position: 'relative', width: '500px', height: '400px' }}>
                 <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
@@ -72,16 +74,34 @@ const SystemNodeMap = ({ studentsCount = 0, facultyCount = 0, materialsCount = 0
                         const ty = 200 + to.y;
 
                         return (
-                            <motion.line
-                                key={idx}
-                                x1={fx} y1={fy} x2={tx} y2={ty}
-                                stroke="var(--admin-primary)"
-                                strokeWidth="2"
-                                strokeDasharray="5,5"
-                                initial={{ opacity: 0, pathLength: 0 }}
-                                animate={{ opacity: 0.3, pathLength: 1 }}
-                                transition={{ duration: 1, delay: idx * 0.1 }}
-                            />
+                            <React.Fragment key={idx}>
+                                <motion.line
+                                    x1={fx} y1={fy} x2={tx} y2={ty}
+                                    stroke="var(--admin-primary)"
+                                    strokeWidth="2"
+                                    strokeDasharray="5,5"
+                                    initial={{ opacity: 0, pathLength: 0 }}
+                                    animate={{ opacity: 0.3, pathLength: 1 }}
+                                    transition={{ duration: 1, delay: idx * 0.1 }}
+                                />
+                                {/* Dynamic Data Packet */}
+                                <motion.circle
+                                    r="3"
+                                    fill={from.color}
+                                    initial={{ cx: fx, cy: fy, opacity: 0 }}
+                                    animate={{
+                                        cx: [fx, tx],
+                                        cy: [fy, ty],
+                                        opacity: [0, 1, 1, 0]
+                                    }}
+                                    transition={{
+                                        duration: 2 + Math.random() * 2,
+                                        repeat: Infinity,
+                                        ease: "linear",
+                                        delay: Math.random() * 3
+                                    }}
+                                />
+                            </React.Fragment>
                         );
                     })}
                 </svg>
@@ -97,6 +117,7 @@ const SystemNodeMap = ({ studentsCount = 0, facultyCount = 0, materialsCount = 0
                             damping: 20,
                             delay: idx * 0.1
                         }}
+                        className="sentinel-floating"
                         style={{
                             position: 'absolute',
                             left: `calc(50% + ${node.x}px - ${node.size / 2}px)`,
@@ -112,7 +133,8 @@ const SystemNodeMap = ({ studentsCount = 0, facultyCount = 0, materialsCount = 0
                             alignItems: 'center',
                             justifyContent: 'center',
                             cursor: 'pointer',
-                            zIndex: 10
+                            zIndex: 10,
+                            animationDelay: `${idx * -1.5}s`
                         }}
                         whileHover={{ scale: 1.1, boxShadow: `0 0 25px ${node.color}40` }}
                     >

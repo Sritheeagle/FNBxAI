@@ -57,17 +57,17 @@ const FacultyScheduleView = ({ facultyData, schedule = [] }) => {
 
             {/* My Classes Control Summary */}
             {myClasses.length > 0 && (
-                <div className="f-schedule-grid animate-slide-up" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', marginBottom: '3.5rem' }}>
+                <div className="f-schedule-grid animate-slide-up" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', marginBottom: '3.5rem', gap: '1.5rem' }}>
                     {myClasses.map((cls, idx) => (
-                        <div key={idx} className="f-node-card f-flex-gap" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-                            <div className="f-node-type-icon">
+                        <div key={idx} className="f-node-card f-flex-gap sentinel-floating" style={{ padding: '1.5rem', borderRadius: '24px', animationDelay: `${idx * -0.5}s` }}>
+                            <div className="f-node-type-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--nexus-primary)', width: '48px', height: '48px', borderRadius: '12px' }}>
                                 <FaUsers />
                             </div>
                             <div>
-                                <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '0.95rem' }}>
-                                    YEAR {cls.year} • SEC {cls.section} • {cls.branch}
+                                <div style={{ fontWeight: 950, color: '#1e293b', fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
+                                    YEAR {cls.year} • SEC {cls.section}
                                 </div>
-                                <div className="f-text-muted" style={{ fontSize: '0.75rem', fontWeight: 850, marginTop: '0.2rem' }}>
+                                <div className="f-text-muted" style={{ fontSize: '0.75rem', fontWeight: 850, marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                     {cls.subjects.join(', ')}
                                 </div>
                             </div>
@@ -93,31 +93,31 @@ const FacultyScheduleView = ({ facultyData, schedule = [] }) => {
             </div>
 
             {/* Session Node List */}
-            <div className="f-schedule-grid animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <div className="f-schedule-grid animate-slide-up" style={{ animationDelay: '0.2s', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {todaySchedule.length > 0 ? (
                     todaySchedule.map((item, index) => (
-                        <div key={index} className="f-schedule-item" style={{ animationDelay: `${index * 0.1}s` }}>
+                        <div key={index} className="f-schedule-item sentinel-floating" style={{ animationDelay: `${index * -0.2}s`, background: 'white', borderRadius: '20px', padding: '1.5rem', border: '1px solid #f1f5f9' }}>
                             {/* Temporal Reference */}
                             <div className="f-schedule-time-box">
                                 <div className={`f-schedule-icon ${item.type === 'Lab' ? 'lab' : 'lecture'}`}>
                                     <FaClock />
                                 </div>
-                                <div className="f-schedule-time">{item.time}</div>
+                                <div className="f-schedule-time" style={{ fontWeight: 950, fontSize: '1.1rem' }}>{item.time}</div>
                             </div>
 
                             {/* Class Logistics */}
                             <div className="f-schedule-info">
-                                <div className="f-schedule-subject">
+                                <div className="f-schedule-subject" style={{ fontSize: '1.2rem', fontWeight: 950, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                     <FaBook style={{ color: 'var(--nexus-primary)' }} />
                                     {item.subject}
-                                    {item.courseCode && <span className="f-meta-badge type">{item.courseCode}</span>}
+                                    {item.courseCode && <span className="f-meta-badge type" style={{ fontSize: '0.6rem' }}>{item.courseCode}</span>}
                                 </div>
-                                <div className="f-schedule-meta-row">
-                                    <div className="f-schedule-meta-item">
+                                <div className="f-schedule-meta-row" style={{ marginTop: '0.5rem' }}>
+                                    <div className="f-schedule-meta-item" style={{ fontWeight: 850, color: '#64748b' }}>
                                         <FaChalkboardTeacher />
                                         YEAR {item.year} • SEC {item.section} • {item.branch}
                                     </div>
-                                    <div className="f-schedule-meta-item">
+                                    <div className="f-schedule-meta-item" style={{ fontWeight: 850, color: '#64748b' }}>
                                         <FaMapMarkerAlt />
                                         {item.room}
                                     </div>
@@ -126,41 +126,41 @@ const FacultyScheduleView = ({ facultyData, schedule = [] }) => {
 
                             {/* Operational Status */}
                             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'flex-end' }}>
-                                <div className={`f-schedule-badge ${item.type === 'Lab' ? 'lab' : 'lecture'}`}>
+                                <div className={`f-schedule-badge ${item.type === 'Lab' ? 'lab' : 'lecture'}`} style={{ fontWeight: 950, fontSize: '0.7rem' }}>
                                     {item.type.toUpperCase()} SESSION
                                 </div>
-                                {item.batch && <div className="f-schedule-badge batch">BATCH {item.batch}</div>}
-                                <button className="f-cancel-btn" style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                                    ROSTER
-                                </button>
+                                {item.batch && <div className="f-schedule-badge batch" style={{ fontWeight: 950, fontSize: '0.65rem' }}>BATCH {item.batch}</div>}
                             </div>
                         </div>
                     ))
                 ) : (
-                    <div className="f-node-card f-center-empty animate-fade-in">
-                        <div style={{ fontSize: '4rem', marginBottom: '2rem', opacity: 0.1 }}>📅</div>
-                        <h3 style={{ fontSize: '1.4rem', fontWeight: 950, color: '#1e293b' }}>No Classes</h3>
-                        <p style={{ color: '#94a3b8', fontWeight: 850, marginTop: '1rem' }}>No classes scheduled for {daysOfWeek[selectedDay]}. Enjoy your free time!</p>
+                    <div className="f-node-card f-center-empty animate-fade-in" style={{ padding: '6rem 2rem' }}>
+                        <div style={{ fontSize: '4rem', marginBottom: '2rem', filter: 'grayscale(1)' }}>📅</div>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 950, color: '#1e293b', margin: 0 }}>NO SCHEDULED CLASSES</h3>
+                        <p style={{ color: '#94a3b8', fontWeight: 850, marginTop: '1rem', textAlign: 'center' }}>The operational pipeline is clear for {daysOfWeek[selectedDay]}. Enjoy your downtime.</p>
                     </div>
                 )}
             </div>
 
             {/* Weekly Telemetry Overview */}
             {schedule.length > 0 && (
-                <div className="f-question-panel animate-slide-up">
-                    <h3 className="f-node-title f-spacer-lg">Weekly Overview</h3>
-                    <div className="f-weekly-stats">
-                        <div className="f-stat-card">
-                            <span className="val">{schedule.length}</span>
-                            <span className="lab">Total Sessions</span>
+                <div className="f-question-panel animate-slide-up" style={{ marginTop: '4rem' }}>
+                    <h3 className="f-node-title f-spacer-lg" style={{ fontSize: '1rem', letterSpacing: '0.1em' }}>WEEKLY TELEMETRY</h3>
+                    <div className="f-weekly-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                        <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s', background: 'white' }}>
+                            <div className="summary-icon-box" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5' }}><FaClock /></div>
+                            <div className="value">{schedule.length}</div>
+                            <div className="label">TOTAL SESSIONS</div>
                         </div>
-                        <div className="f-stat-card">
-                            <span className="val">{myClasses.length}</span>
-                            <span className="lab">Active Sections</span>
+                        <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1.5s', background: 'white' }}>
+                            <div className="summary-icon-box" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}><FaUsers /></div>
+                            <div className="value">{myClasses.length}</div>
+                            <div className="label">ACTIVE SECTIONS</div>
                         </div>
-                        <div className="f-stat-card">
-                            <span className="val">{new Set(schedule.map(s => s.subject)).size}</span>
-                            <span className="lab">Subjects</span>
+                        <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-3s', background: 'white' }}>
+                            <div className="summary-icon-box" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}><FaBook /></div>
+                            <div className="value">{new Set(schedule.map(s => s.subject)).size}</div>
+                            <div className="label">SUBJECT NODES</div>
                         </div>
                     </div>
                 </div>

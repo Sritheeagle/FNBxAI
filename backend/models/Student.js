@@ -11,6 +11,7 @@ const studentSchema = new mongoose.Schema({
     section: { type: String, default: 'A' },
     profilePic: { type: String }, // Path to image in their specific folder
     folderPath: { type: String }, // Path to their folder: uploads/students/{sid}
+    roadmapProgress: { type: Map, of: Object, default: {} },
     createdAt: { type: Date, default: Date.now }
 });
 

@@ -30,8 +30,8 @@ function App() {
               <Route path="/" element={
                 <div>
                   <h2>Welcome to FNB-XAI System</h2>
-                  <p>Backend API: <a href="http://localhost:5000/api-docs" target="_blank" rel="noopener noreferrer">API Documentation</a></p>
-                  <p>System Health: <a href="http://localhost:5000/api/system/health" target="_blank" rel="noopener noreferrer">Health Check</a></p>
+                  <p>Backend API: <a href="http://127.0.0.1:5000/api-docs" target="_blank" rel="noopener noreferrer">API Documentation</a></p>
+                  <p>System Health: <a href="http://127.0.0.1:5000/api/system/health" target="_blank" rel="noopener noreferrer">Health Check</a></p>
                 </div>
               } />
               <Route path="/admin" element={<Navigate to="/" replace />} />

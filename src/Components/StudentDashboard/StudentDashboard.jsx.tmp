@@ -1,0 +1,34 @@
+                <div className="bento-card bento-mini-widget animate-bento sentinel-floating" style={{ animationDelay: '0.5s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="bento-card-header">
+                        <h3>Next Class</h3>
+                        {nextClass && (
+                            <span className="live-tag">
+                                IN {(() => {
+                                    const timeParts = (nextClass?.time || '').split(' - ');
+                                    if (timeParts.length < 1) return 'TBD';
+                                    const startTime = timeParts[0];
+                                    const [h, m] = startTime.split(':');
+                                    const classDate = new Date();
+                                    classDate.setHours(parseInt(h) || 0, parseInt(m) || 0, 0);
+                                    const diff = classDate.getTime() - currentTime.getTime();
+                                    if (isNaN(diff)) return 'TBD';
+                                    const diffMins = Math.floor(diff / 60000);
+                                    if (diffMins < 0) return 'STARTED';
+                                    if (diffMins < 60) return `${diffMins}M`;
+                                    return `${Math.floor(diffMins / 60)}H`;
+                                })()}
+                            </span>
+                        )}
+                    </div>
+                    {nextClass ? (
+                        <div className="session-compact">
+                            <h4 className="s-subject">{nextClass.subject}</h4>
+                            <p className="s-meta">{nextClass.time} | Room {nextClass.room}</p>
+                            <span className="s-faculty">with Prof. {nextClass.faculty ? nextClass.faculty.split(' ')[0] : 'Instructor'}</span>
+                            <button className="s-action" onClick={() => setView('schedule')}>GO TO SCHEDULE</button>
+                        </div>
+                    ) : (
+                        <div className="session-empty">No active classes today</div>
+                    )}
+                </div>

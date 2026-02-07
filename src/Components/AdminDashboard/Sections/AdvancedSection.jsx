@@ -22,10 +22,11 @@ const AdvancedSection = ({ topics, materials, openModal }) => {
             </header>
 
             <div className="admin-grid">
-                {topics.map(topic => {
+                {topics.map((topic, idx) => {
                     const count = materials.filter(m => m.subject === topic).length;
                     return (
-                        <div key={topic} className="admin-summary-card animate-slide-up" style={{ padding: '1.75rem' }}>
+                        <div key={topic} className="admin-summary-card sentinel-floating" style={{ padding: '1.75rem', animationDelay: `${idx * -1.5}s` }}>
+                            <div className="sentinel-scanner"></div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                     <div className="summary-icon-box" style={{ background: '#f5f3ff', color: 'var(--admin-primary)', width: '40px', height: '40px' }}>

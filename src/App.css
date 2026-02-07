@@ -322,3 +322,53 @@
   color: #0f172a;
   transform: rotate(90deg);
 }
+
+/* --- Sentinel Global Animations --- */
+.sentinel-floating {
+  animation: sentinel-float 4s ease-in-out infinite alternate;
+}
+
+@keyframes sentinel-float {
+  from {
+    transform: translateY(0) scale(1);
+    box-shadow: var(--v-shadow-lg);
+  }
+
+  to {
+    transform: translateY(-8px) scale(1.01);
+    box-shadow: var(--v-shadow-xl);
+  }
+}
+
+.sentinel-scanner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: white;
+  box-shadow: 0 0 10px white, 0 0 20px white;
+  z-index: 10;
+  pointer-events: none;
+  animation: sentinel-scan 4s linear infinite;
+}
+
+@keyframes sentinel-scan {
+  0% {
+    top: -5%;
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.5;
+  }
+
+  70% {
+    opacity: 0.5;
+  }
+
+  100% {
+    top: 105%;
+    opacity: 0;
+  }
+}

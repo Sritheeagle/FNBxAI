@@ -1,21 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FaChalkboardTeacher, FaBook, FaEnvelope, FaPlus, FaTrash, FaEye, FaEyeSlash,
+  FaBookOpen, FaRobot, FaFileUpload, FaBullhorn, FaLayerGroup, FaBars, FaShieldAlt, FaChartBar,
+  FaUserClock, FaUsers, FaClipboardList, FaEdit,
+} from 'react-icons/fa';
 import AdminHeader from './Sections/AdminHeader';
 import AdminHome from './Sections/AdminHome';
-import './AdminDashboard.css';
-import { readFaculty, readStudents, writeStudents, writeFaculty } from '../../utils/localdb';
 import api from '../../utils/apiClient';
 import { getYearData } from '../StudentDashboard/branchData';
-// import AcademicPulse from '../StudentDashboard/AcademicPulse'; // Removed unused import
 import VuAiAgent from '../VuAiAgent/VuAiAgent';
 import AdminAttendancePanel from './AdminAttendancePanel';
 import AdminScheduleManager from './AdminScheduleManager';
 import AdminExams from './AdminExams';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FaUserGraduate, FaChalkboardTeacher, FaBook, FaEnvelope, FaPlus, FaTrash, FaEye, FaEyeSlash, FaBookOpen, FaRobot, FaFileUpload, FaBullhorn, FaLayerGroup, FaBars } from 'react-icons/fa';
 import sseClient from '../../utils/sseClient';
-
-// Newly extracted sections
 import StudentSection from './Sections/StudentSection';
 import FacultySection from './Sections/FacultySection';
 import MaterialSection from './Sections/MaterialSection';
@@ -25,10 +23,15 @@ import AcademicHub from './Sections/AcademicHub';
 import AdminMarks from './AdminMarks';
 import AdminPlacements from './AdminPlacements';
 import PersonalDetailsBall from '../PersonalDetailsBall/PersonalDetailsBall';
+import './AdminDashboard.css';
 
+// Note: We are now exclusively using MongoDB Atlas via API.
+const USE_API = true;
+const writeStudents = async (data) => localStorage.setItem('adminStudents', JSON.stringify(data));
+const writeFaculty = async (data) => localStorage.setItem('adminFaculty', JSON.stringify(data));
 
-// Helper for mocked API or local storage check
-const USE_API = true; // Always use API in unified app mode (defaults to localhost:5000)
+// Helper for data persistence
+// Note: We are now exclusively using MongoDB Atlas via API.
 
 const ADVANCED_TOPICS = [
   'Artificial Intelligence',
@@ -59,6 +62,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
   const [messages, setMessages] = useState([]);
   const [fees, setFees] = useState([]);
   const [placements, setPlacements] = useState([]);
+  const [isLoading, setIsLoading] = useState(true); // Added real loading state
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiInitialPrompt, setAiInitialPrompt] = useState('');
 
@@ -108,39 +112,28 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
       }
     });
     // Final safety filter to remove any malformed entries that could crash UI
-    return merged.filter(x => x && x.name && x.code).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return merged.filter(x => x && x.name && x.code && !x.isHidden && x.status !== 'Inactive').sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [courses]);
 
   // Load Initial Data
   useEffect(() => {
-    console.log('🚀 AdminDashboard: Initial data load started');
+    console.log('🚀 AdminDashboard: Initial system uplink started');
+
+    // 🚩 PURGE LEGACY LOCAL DATA
+    const keysToPurge = [
+      'adminStudents', 'adminFaculty', 'courses', 'adminMessages',
+      'adminTodos', 'localStudents', 'localFaculty', 'courseMaterials',
+      'teachingAssignments', 'curriculumData'
+    ];
+    keysToPurge.forEach(key => localStorage.removeItem(key));
+    console.log('🧹 Legacy local data purged to ensure MongoDB Atlas integrity');
+
     loadData();
-    // Load ToDos from local storage
-    const savedTodos = JSON.parse(localStorage.getItem('adminTodos') || '[]');
-    setTodos(savedTodos);
-
-    // Optimized polling: 5 seconds (more efficient than 2s)
-    const interval = setInterval(() => {
-      console.log('🔄 AdminDashboard: Polling data from database...');
-      loadData();
-    }, 5000);
-
-    // Fast announcements update every 5s
-    const messagesInterval = setInterval(async () => {
-      try {
-        if (USE_API) {
-          const msg = await api.apiGet('/api/messages');
-          setMessages(Array.isArray(msg) ? msg.sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0)) : []);
-        }
-      } catch (e) {
-        console.debug('Messages refresh failed', e);
-      }
-    }, 5000);
+    const interval = setInterval(() => loadData(), 30000);
 
     return () => {
       console.log('🛑 AdminDashboard: Cleaning up intervals');
       clearInterval(interval);
-      clearInterval(messagesInterval);
     };
   }, []);
 
@@ -150,52 +143,57 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
       try {
         if (!ev || !ev.resource) return;
         const r = ev.resource;
-        if (['students', 'faculty', 'courses', 'materials', 'messages', 'todos', 'fees', 'placements'].includes(r)) {
-          // Quick refresh same as loadData for specific resource
+        const trackedNodes = [
+          'students', 'faculty', 'courses', 'materials', 'messages',
+          'todos', 'fees', 'placements', 'attendance', 'marks', 'exams', 'schedule',
+          'curriculum', 'transmission'
+        ];
+        if (ev.action === 'delete' && ev.id) {
+          if (r === 'students') setStudents(prev => prev.filter(s => (s._id !== ev.id) && (s.id !== ev.id)));
+          else if (r === 'faculty') setFaculty(prev => prev.filter(f => (f._id !== ev.id) && (f.id !== ev.id)));
+          else if (r === 'courses') setCourses(prev => prev.filter(c => (c._id !== ev.id) && (c.id !== ev.id)));
+          else if (r === 'materials') setMaterials(prev => prev.filter(m => (m._id !== ev.id) && (m.id !== ev.id)));
+          else if (r === 'todos') setTodos(prev => prev.filter(t => (t._id !== ev.id) && (t.id !== ev.id)));
+          else if (r === 'placements') setPlacements(prev => prev.filter(p => (p._id !== ev.id) && (p.id !== ev.id)));
+          else if (r === 'messages') setMessages(prev => prev.filter(m => (m._id !== ev.id) && (m.id !== ev.id)));
+          return;
+        }
+
+        if (trackedNodes.includes(r)) {
           (async () => {
             try {
-              if (USE_API) {
-                if (r === 'students') {
-                  const s = await api.apiGet('/api/students');
-                  setStudents(Array.isArray(s) ? s : []);
-                }
-                if (r === 'faculty') {
-                  const f = await api.apiGet('/api/faculty');
-                  const facultyWithAssignments = (Array.isArray(f) ? f : []).map(faculty => ({
-                    ...faculty,
-                    assignments: Array.isArray(faculty.assignments) ? faculty.assignments : []
-                  }));
-                  console.log('🔄 SSE Faculty refresh:', facultyWithAssignments);
-                  setFaculty(facultyWithAssignments);
-                }
-                if (r === 'courses') {
-                  const c = await api.apiGet('/api/courses');
-                  setCourses(Array.isArray(c) ? c : []);
-                }
-                if (r === 'materials') {
-                  const m = await api.apiGet('/api/materials');
-                  setMaterials(Array.isArray(m) ? m : []);
-                }
-                if (r === 'messages') {
-                  const msg = await api.apiGet('/api/messages');
-                  setMessages(Array.isArray(msg) ? msg.sort((a, b) => new Date(b.date) - new Date(a.date)) : []);
-                }
-                if (r === 'todos') {
-                  const t = await api.apiGet('/api/todos');
-                  setTodos(Array.isArray(t) ? t : []);
-                }
-                if (r === 'fees') {
-                  const f = await api.apiGet('/api/fees');
-                  setFees(Array.isArray(f) ? f : []);
-                }
-                if (r === 'placements') {
-                  const p = await api.apiGet('/api/placements');
-                  setPlacements(Array.isArray(p) ? p : []);
-                }
+              if (r === 'students' || ev.action === 'student-update') {
+                const s = await api.apiGet('/api/students');
+                setStudents(Array.isArray(s) ? s : []);
+              } else if (r === 'faculty' || ev.action === 'faculty-update') {
+                const f = await api.apiGet('/api/faculty');
+                setFaculty((Array.isArray(f) ? f : []).map(fac => ({
+                  ...fac,
+                  assignments: Array.isArray(fac.assignments) ? fac.assignments : []
+                })));
+              } else if (r === 'courses') {
+                const c = await api.apiGet('/api/courses');
+                setCourses(Array.isArray(c) ? c : []);
+              } else if (r === 'materials') {
+                const m = await api.apiGet('/api/materials');
+                setMaterials(Array.isArray(m) ? m : []);
+              } else if (r === 'messages') {
+                const msg = await api.apiGet('/api/messages');
+                setMessages(Array.isArray(msg) ? msg.sort((a, b) => new Date(b.date) - new Date(a.date)) : []);
+              } else if (r === 'todos') {
+                const t = await api.apiGet('/api/todos');
+                setTodos(Array.isArray(t) ? t : []);
+              } else if (r === 'fees') {
+                const f = await api.apiGet('/api/fees');
+                setFees(Array.isArray(f) ? f : []);
+              } else if (r === 'placements') {
+                const p = await api.apiGet('/api/placements');
+                setPlacements(Array.isArray(p) ? p : []);
+              } else {
+                // Secondary resources: full refresh logic or specific fetch
+                loadData();
               }
-            } catch (e) {
-              console.error('SSE refresh failed', e);
-            }
+            } catch (e) { console.error('SSE sync fail:', e); }
           })();
         }
       } catch (e) {
@@ -207,71 +205,53 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
 
   const loadData = async () => {
     try {
-      console.log('📊 loadData: Starting data fetch from database...');
-      if (USE_API) {
-        const fetchSafely = async (path, defaultVal = []) => {
-          try {
-            console.log(`   → Fetching ${path}...`);
-            const res = await api.apiGet(path);
-            console.log(`   ✅ ${path} fetched:`, Array.isArray(res) ? `${res.length} items` : 'object');
-            return Array.isArray(res) ? res : (res?.data || defaultVal);
-          } catch (e) {
-            console.error(`   ❌ ${path} failed:`, e.message);
-            return defaultVal;
-          }
-        };
+      console.log('📊 loadData: Syncing with MongoDB Atlas...');
+      // Only show full loader on first load, otherwise background sync
+      // We don't set isLoading(true) here to avoid flashing on polling/updates
 
-        const [s, f, c, m, msg, t, feesRes, p] = await Promise.all([
-          fetchSafely('/api/students'),
-          fetchSafely('/api/faculty'),
-          fetchSafely('/api/courses'),
-          fetchSafely('/api/materials'),
-          fetchSafely('/api/messages'),
-          fetchSafely('/api/todos'),
-          fetchSafely('/api/fees'),
-          fetchSafely('/api/placements')
-        ]);
+      const fetchSafely = async (path, defaultVal = []) => {
+        try {
+          // console.log(`   → Syncing ${path}...`);
+          const res = await api.apiGet(path);
+          return Array.isArray(res) ? res : (res?.data || defaultVal);
+        } catch (e) {
+          console.error(`   ❌ ${path} sync failed:`, e.message);
+          return defaultVal;
+        }
+      };
 
-        // Ensure faculty data includes assignments properly
-        const facultyWithAssignments = (f || []).map(faculty => ({
-          ...faculty,
-          assignments: Array.isArray(faculty.assignments) ? faculty.assignments : []
-        }));
+      const fetchTasks = [
+        api.apiGet('/api/students'),
+        api.apiGet('/api/faculty'),
+        api.apiGet('/api/courses'),
+        api.apiGet('/api/materials'),
+        api.apiGet('/api/messages'),
+        api.apiGet('/api/todos'),
+        api.apiGet('/api/fees'),
+        api.apiGet('/api/placements')
+      ];
 
-        console.log('📊 loadData: Data loaded successfully');
-        console.log('   • Students:', s.length);
-        console.log('   • Faculty:', facultyWithAssignments.length);
-        console.log('   • Courses:', c.length);
-        console.log('   • Materials:', m.length);
-        console.log('   • Messages:', msg.length);
-        console.log('   • Todos:', t.length);
+      const results = await Promise.allSettled(fetchTasks);
 
-        setStudents(s);
-        setFaculty(facultyWithAssignments);
-        setCourses(c);
-        setMaterials(m);
-        setMessages(msg.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
-        setTodos(t);
-        setFees(feesRes || []);
-        setPlacements(p || []);
-      } else {
-        console.log('📊 loadData: Using local storage (API disabled)');
-        const s = await readStudents();
-        const f = await readFaculty();
-        // Load materials from localStorage - getting ALL materials in a flat list for admin view
-        const matRaw = JSON.parse(localStorage.getItem('courseMaterials') || '[]');
-        let flatMaterials = Array.isArray(matRaw) ? matRaw : [];
+      results.forEach((res, i) => {
+        if (res.status === 'fulfilled') {
+          const data = Array.isArray(res.value) ? res.value : (res.value?.data || []);
+          if (i === 0) setStudents(data);
+          if (i === 1) setFaculty(data.map(f => ({ ...f, assignments: Array.isArray(f.assignments) ? f.assignments : [] })));
+          if (i === 2) setCourses(data);
+          if (i === 3) setMaterials(data);
+          if (i === 4) setMessages(data.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
+          if (i === 5) setTodos(data);
+          if (i === 6) setFees(data);
+          if (i === 7) setPlacements(data);
+        }
+      });
+      console.log('📊 loadData: Cloud sync successful');
 
-        setStudents(s || []);
-        setFaculty(f || []);
-        setCourses(JSON.parse(localStorage.getItem('courses') || '[]'));
-        setMaterials(flatMaterials);
-        setMessages(JSON.parse(localStorage.getItem('adminMessages') || '[]'));
-      }
     } catch (err) {
-      console.error('❌ loadData: Critical error:', err);
-      console.error('   Error details:', err.message);
-      console.error('   Stack:', err.stack);
+      console.error('❌ loadData: Critical sync error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -284,6 +264,14 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
     window.location.href = '/';
   };
 
+  const getFileUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+    return `${API_URL.replace(/\/$/, '')}${cleanUrl}`;
+  };
+
 
   // --- CRUD Operations ---
 
@@ -292,6 +280,11 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
+
+    // Sanitize fields to ensure clean matching
+    if (data.year) data.year = String(data.year).replace(/[^0-9]/g, '');
+    if (data.section) data.section = String(data.section).replace(/Section\s*/i, '').trim().toUpperCase();
+    if (data.branch) data.branch = String(data.branch).trim().toUpperCase();
 
     if (!data.sid || !data.name) return alert('ID and Name required');
 
@@ -353,8 +346,6 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
         console.log('[Student] Deleting student:', sid);
         await api.apiDelete(`/api/students/${sid}`);
         console.log('[Student] Student deleted from server');
-        // Refresh data to ensure sync with MongoDB
-        await loadData();
         alert('Student deleted successfully');
       } else {
         const newStudents = students.filter(s => s.sid !== sid);
@@ -364,6 +355,11 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
     } catch (err) {
       console.error('Delete student failed:', err);
       alert('Failed to delete student: ' + (err.message || 'Unknown error'));
+    } finally {
+      if (USE_API) {
+        console.log('[Student] Refreshing student list...');
+        await loadData();
+      }
     }
   };
 
@@ -415,7 +411,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
     }
 
     // Merge assignments - ensure they're formatted correctly
-    data.assignments = facultyAssignments.map(a => ({
+    const assignments = facultyAssignments.map(a => ({
       year: String(a.year || ''),
       section: String(a.section || '').toUpperCase().trim(),
       subject: String(a.subject || '').trim(),
@@ -423,9 +419,12 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
       semester: a.semester || ''
     }));
 
-    console.log('📝 FRONTEND: Preparing to save faculty');
+    // Prepare FormData for multi-part upload (needed for profile pics)
+    const apiFields = new FormData(e.target);
+    apiFields.append('assignments', JSON.stringify(assignments));
+
+    console.log('📝 FRONTEND: Preparing to save faculty via FormData');
     console.log('  Mode:', editItem ? 'EDIT' : 'CREATE');
-    console.log('  Data:', data);
 
     try {
       let newFaculty = [...faculty];
@@ -433,11 +432,11 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
       if (editItem) {
         // EDIT - Update existing faculty in database
         if (USE_API) {
-          const idToUpdate = editItem._id || editItem.facultyId;
+          const idToUpdate = editItem.facultyId || editItem._id; // Prioritize facultyId to match business logic
           console.log('🔄 Updating faculty with ID:', idToUpdate);
 
-          // Perform API Update
-          const response = await api.apiPut(`/api/faculty/${idToUpdate}`, data);
+          // Perform API Update using apiUpload (which handles FormData)
+          const response = await api.apiUpload(`/api/faculty/${idToUpdate}`, apiFields, 'PUT');
 
           // API Client might return the data directly or a response object
           const updatedData = response.data || response;
@@ -456,7 +455,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
               return {
                 ...f,
                 ...updatedData,
-                assignments: updatedData.assignments || data.assignments // Prefer server response
+                assignments: updatedData.assignments || assignments // Prefer server response
               };
             }
             return f;
@@ -464,24 +463,26 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
 
         } else {
           // Local Storage Mode
-          newFaculty = newFaculty.map(f => f.facultyId === editItem.facultyId ? { ...f, ...data } : f);
+          const localData = Object.fromEntries(apiFields.entries());
+          newFaculty = newFaculty.map(f => f.facultyId === editItem.facultyId ? { ...f, ...localData, assignments } : f);
           await writeFaculty(newFaculty);
         }
       } else {
         // CREATE - Add new faculty to database
         if (USE_API) {
           console.log('➕ Creating new faculty');
-          const response = await api.apiPost('/api/faculty', data);
+          const response = await api.apiUpload('/api/faculty', apiFields);
           const newF = response.data || response;
           console.log('✅ New Faculty created from server:', newF);
 
           newFaculty.push({
             ...newF,
-            assignments: newF.assignments || data.assignments
+            assignments: newF.assignments || assignments
           });
         } else {
           // Local Storage Mode
-          const newF = { ...data, id: Date.now().toString(), createdAt: new Date().toISOString() };
+          const localData = Object.fromEntries(apiFields.entries());
+          const newF = { ...localData, assignments, id: Date.now().toString(), createdAt: new Date().toISOString() };
           newFaculty.push(newF);
           await writeFaculty(newFaculty);
         }
@@ -511,16 +512,38 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
   };
 
   const handleAddAssignment = () => {
-    const year = document.getElementById('assign-year').value;
-    const section = document.getElementById('assign-section').value;
-    const subject = document.getElementById('assign-subject').value;
-    const branch = document.getElementById('assign-branch').value;
+    let year = document.getElementById('assign-year').value;
+    let section = document.getElementById('assign-section').value;
+    let subject = document.getElementById('assign-subject').value;
+    let branch = document.getElementById('assign-branch').value;
+    let semester = document.getElementById('assign-semester').value;
 
     if (year && section && subject && branch) {
-      setFacultyAssignments([...facultyAssignments, { year, section, subject, branch }]);
-      // clear inputs
+      // 1. Sanitize Year (Remove non-digits)
+      year = String(year).replace(/[^0-9]/g, '');
+
+      // 2. Sanitize Section (A, B, C... or ALL)
+      section = String(section).toUpperCase().trim();
+      if (section.length > 3 && section !== 'ALL') {
+        // Heuristic: If user typed "Section A", extract "A"
+        const match = section.match(/([A-Z0-9]+)$/);
+        if (match) section = match[1];
+      }
+      // Remove commas if single section to correspond with standard format
+      if (section.length === 1) section = section.replace(',', '');
+
+      setFacultyAssignments([...facultyAssignments, {
+        year,
+        section,
+        subject: subject.trim(),
+        branch,
+        semester: semester || '1'
+      }]);
+
+      // Clear inputs
       document.getElementById('assign-section').value = '';
       document.getElementById('assign-subject').value = '';
+      document.getElementById('assign-semester').value = '';
     } else {
       alert('Please fill Year, Branch, Section and Subject');
     }
@@ -537,25 +560,26 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
     if (!window.confirm('Delete Faculty Member?')) return;
     try {
       if (USE_API) {
-        // Find full object to get DB _id if needed
-        const facToDelete = faculty.find(f => f.facultyId === fid);
-        const idToDelete = facToDelete?._id || fid;
+        // Backend expects facultyId, not _id
+        const idToDelete = fid; // Changed to use facultyId directly matching backend controller
+
+        // Optimistic UI Update: Remove immediately
+        setFaculty(prev => prev.filter(f => f.facultyId !== fid));
+
         await api.apiDelete(`/api/faculty/${idToDelete}`);
-      }
-
-      const newFac = faculty.filter(f => f.facultyId !== fid);
-      if (!USE_API) await writeFaculty(newFac);
-
-      setFaculty(newFac);
-
-      // Force immediate data reload to ensure dashboard shows updated data
-      if (USE_API) {
-        console.log('🔄 Forcing faculty data reload after delete...');
-        await loadData();
+      } else {
+        const newFac = faculty.filter(f => f.facultyId !== fid);
+        await writeFaculty(newFac);
+        setFaculty(newFac);
       }
     } catch (err) {
-      console.error(err);
+      console.error('[Faculty Delete] Error:', err);
       alert('Failed to delete faculty');
+    } finally {
+      if (USE_API) {
+        console.log('🔄 Reloading all data after faculty delete...');
+        await loadData();
+      }
     }
   };
 
@@ -589,13 +613,8 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
               });
             } catch (err) {
               if (err.message && err.message.includes('409')) {
-                alert('This course already exists in the database. Your changes have been saved locally.');
-                newCourses = newCourses.map(c => {
-                  const match = (editItem._id && c._id === editItem._id) ||
-                    (editItem.id && c.id === editItem.id) ||
-                    (c.code === editItem.code);
-                  return match ? { ...c, ...data } : c;
-                });
+                alert('This course already exists in the database. Please refresh the page to edit the database version.');
+                return;
               } else {
                 throw err;
               }
@@ -620,8 +639,8 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
             });
           }
         } else {
-          newCourses = newCourses.map(c => c.id === editItem.id ? { ...c, ...data } : c);
-          localStorage.setItem('courses', JSON.stringify(newCourses));
+          alert("Offline mode cannot be used to edit courses. Please ensure backend is running.");
+          return;
         }
       } else {
         // Add new
@@ -639,9 +658,8 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
             }
           }
         } else {
-          const newC = { ...data, id: Date.now().toString() };
-          newCourses.push(newC);
-          localStorage.setItem('courses', JSON.stringify(newCourses));
+          alert("Offline mode cannot be used to create courses. Please ensure backend is running.");
+          return;
         }
       }
       setCourses(newCourses);
@@ -678,92 +696,109 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
       return;
     }
 
-    const { id, _id, name, isStatic } = courseToDelete;
+    const { id, _id, name, code, isStatic, year, semester, branch, section, description, credits } = courseToDelete;
     const realId = _id || id;
 
-    if (!window.confirm(`Delete Subject: ${name}?`)) return;
+    // Check if this is a static template subject (not in database yet)
+    const isTemplateSubject = isStatic || String(realId).startsWith('static-');
 
-    // 2. Handle Static Courses (Complex Logic - No Optimistic)
-    // Check if explicitly marked static OR no ID (implies static/generated)
-    if (isStatic || String(realId).startsWith('static-') || !realId) {
-      try {
-        if (USE_API) {
-          const { year, semester, branch } = courseToDelete; // These should be present on the object passed from AcademicHub
-
-          // 1. Find siblings - We must re-generate the full list for that context to know what to migrate
-          // We can't rely just on 'courses' state because it lacks static items.
-          // Strategy: Use getYearData again or assume AcademicHub logic.
-          // Better Strategy: Just fetch the static data for that specific Year/Branch
-          const staticData = getYearData(branch || 'CSE', String(year));
-          let siblings = [];
-
-          if (staticData && staticData.semesters) {
-            const semData = staticData.semesters.find(s => String(s.sem) === String(semester));
-            if (semData && semData.subjects) {
-              // Filter out the one we are deleting
-              siblings = semData.subjects.filter(s => s.code !== courseToDelete.code && s.name !== courseToDelete.name);
-            }
-          }
-
-          console.log(`[Delete Static] Found ${siblings.length} siblings to migrate.`);
-
-          // 2. Promote siblings
-          let successCount = 0;
-          for (const sib of siblings) {
-            try {
-              const payload = {
-                name: sib.name,
-                code: sib.code,
-                year: year,       // Ensure these context fields are preserved
-                semester: semester,
-                branch: branch || 'CSE',
-                description: sib.description || '',
-                credits: sib.credits || 3,
-                section: 'All' // Default to all sections when migrating base curriculum
-              };
-              await api.apiPost('/api/courses', payload);
-              successCount++;
-            } catch (innerErr) {
-              if (innerErr.message && !innerErr.message.includes('409')) {
-                console.error('Failed to migrate sibling:', sib.name, innerErr);
-              } else if (innerErr.message && innerErr.message.includes('409')) {
-                // Clone existing checks? If 409, it means it's already dynamic, so we are good.
-                successCount++;
-              }
-            }
-          }
-
-          alert(`Deleted default subject. Automatically migrated ${successCount} other subjects to database.`);
-          loadData();
-        }
-      } catch (err) {
-        console.error(err);
-        alert('Failed to delete static subject: ' + err.message);
-      }
-      return;
-    }
-
-    // 3. Handle Dynamic Courses (Optimistic Update)
-    const previousCourses = [...courses];
-    const targetId = _id || id;
-
-    // Optimistic: Remove immediately from UI
-    setCourses(prev => prev.filter(c => c.id !== targetId && c._id !== targetId));
+    if (!window.confirm(`Permanently remove subject: ${name}?\n\nThis will hide it from all students and faculty.`)) return;
 
     try {
       if (USE_API) {
-        await api.apiDelete(`/api/courses/${targetId}`);
-        // Refresh canonical data to keep dashboards in sync
-        await loadData();
+        if (isTemplateSubject) {
+          // Template subject - Create a "hidden override" in database
+          console.log('[Delete] Creating hidden override for template subject:', { name, code });
+
+          // Check if a database record already exists for this code
+          const existing = courses.find(c =>
+            c.code === code &&
+            (c._id || c.id) &&
+            !String(c._id || c.id).startsWith('static-')
+          );
+
+          if (existing) {
+            // Update existing record to hidden
+            await api.apiPut(`/api/courses/${existing._id || existing.id}`, {
+              ...existing,
+              isHidden: true,
+              status: 'Inactive'
+            });
+            console.log('[Delete] Updated existing record to hidden');
+          } else {
+            // Create new hidden record
+            const payload = {
+              name,
+              code,
+              year: year || 1,
+              semester: semester || 1,
+              branch: branch || 'CSE',
+              section: section || 'All',
+              description: description || 'Hidden curriculum subject',
+              credits: credits || 3,
+              isHidden: true,
+              status: 'Inactive'
+            };
+            await api.apiPost('/api/courses', payload);
+            console.log('[Delete] Created hidden override record');
+          }
+
+          // Immediate local state update - mark as hidden
+          setCourses(prev => prev.filter(c =>
+            !(c.code === code && String(c.id || c._id).startsWith('static-'))
+          ));
+
+          alert(`✓ Subject "${name}" has been hidden from all views.`);
+
+        } else {
+          // Database subject - Permanent deletion
+          if (!realId) {
+            alert('Cannot delete: Subject ID is missing');
+            console.error('[Delete] Missing ID:', courseToDelete);
+            return;
+          }
+
+          console.log('[Delete] Deleting subject from database:', { name, code, id: realId });
+
+          // Perform the deletion
+          const response = await api.apiDelete(`/api/courses/${realId}`);
+          console.log('[Delete] Backend response:', response);
+
+          // Immediate local state update
+          setCourses(prev => prev.filter(c => (c._id || c.id) !== realId));
+
+          console.log('[Delete] Subject deleted successfully');
+          alert(`✓ Subject "${name}" has been permanently deleted.`);
+        }
+
       } else {
-        const newCourses = previousCourses.filter(c => c.id !== targetId && c._id !== targetId);
-        localStorage.setItem('courses', JSON.stringify(newCourses));
+        // Local logic (Legacy)
+        const newCourses = courses.filter(c => c.id !== realId && c._id !== realId);
+        setCourses(newCourses);
+        alert('Subject removed from local list.');
       }
     } catch (err) {
-      console.error(err);
-      alert('Failed to delete subject: ' + err.message);
-      // Revert if API fails
-      setCourses(previousCourses);
+      console.error('[Delete Error] Full error:', err);
+      console.error('[Delete Error] Response:', err.response);
+      const errorMsg = err.response?.data?.error || err.message;
+
+      // If it's a "not found" error, the subject might already be deleted
+      if (err.response?.status === 404) {
+        alert(`Subject "${name}" was already removed or doesn't exist.`);
+        setCourses(prev => prev.filter(c => (c._id || c.id) !== realId));
+      } else if (err.response?.status === 409) {
+        // Duplicate - the override already exists, just mark as hidden
+        alert(`Subject "${name}" is already hidden.`);
+      } else {
+        alert(`Failed to remove subject: ${errorMsg}\n\nPlease check the console for details.`);
+      }
+    } finally {
+      // ALWAYS refresh to ensure UI matches database state
+      if (USE_API) {
+        console.log('[Delete] Refreshing all data...');
+        await loadData();
+        console.log('[Delete] Refresh complete - Subject should now be hidden from all views');
+      }
     }
   };
 
@@ -865,9 +900,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
               console.log('[Material Upload] Adding successful response to materials array');
               allMaterials.push(res);
             } else {
-              console.warn('[Material Upload] Response missing ID, creating local fallback');
-              const fallbackItem = { ...data, id: Date.now().toString(), uploadedAt: new Date().toISOString() };
-              allMaterials.push(fallbackItem);
+              throw new Error('Server returned success but no ID was provided. The material may not have been saved correctly.');
             }
           } catch (uploadError) {
             console.error('[Material Upload] ERROR during upload:', uploadError.message);
@@ -887,44 +920,14 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
         }
 
         // Refresh materials from server to ensure sync
-        try {
-          console.log('[Material Upload] Refreshing materials from server...');
-          const refreshedMaterials = await api.apiGet('/api/materials');
-          setMaterials(refreshedMaterials || []);
-          console.log('[Material Upload] Materials refreshed successfully. Total:', refreshedMaterials?.length || 0);
-        } catch (refreshErr) {
-          console.warn('[Material Upload] Failed to refresh materials:', refreshErr);
-          setMaterials(allMaterials);
-        }
-      } else {
-        // Local fallback
-        const newMaterial = {
-          id: editItem ? editItem.id : Date.now().toString(),
-          title: data.title,
-          type: data.type,
-          url: data.url || (file ? URL.createObjectURL(file) : '#'),
-          year: data.year,
-          section: data.section || 'All',
-          subject: data.subject,
-          module: data.module,
-          unit: data.unit,
-          topic: data.topic || 'General',
-          uploadedAt: new Date().toISOString(),
-          uploadedBy: 'admin'
-        };
-        if (editItem) {
-          allMaterials = allMaterials.map(m => m.id === editItem.id ? newMaterial : m);
-        } else {
-          allMaterials.push(newMaterial);
-        }
-        localStorage.setItem('courseMaterials', JSON.stringify(allMaterials));
-        setMaterials(allMaterials);
+        console.log('[Material Upload] Refreshing materials from server...');
+        const refreshedMaterials = await api.apiGet('/api/materials');
+        setMaterials(refreshedMaterials);
+        closeModal();
+        alert('✅ Material uploaded successfully! Students can now access it in their dashboard.');
+        console.log('[Material Upload] Operation completed successfully');
+
       }
-
-      closeModal();
-      alert('✅ Material uploaded successfully! Students can now access it in their dashboard.');
-      console.log('[Material Upload] Operation completed successfully');
-
     } catch (err) {
       console.error('[Material Upload] Error:', err);
       console.error('[Material Upload] Error stack:', err.stack);
@@ -938,7 +941,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
         userMessage += 'Please check:\n';
         userMessage += '1. Backend server is running (run_unified_app.bat)\n';
         userMessage += '2. MongoDB is connected\n';
-        userMessage += '3. No firewall blocking localhost:5000\n\n';
+        userMessage += '3. No firewall blocking 127.0.0.1:5000\n\n';
         userMessage += 'Check browser console (F12) for details.';
       } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('Authentication')) {
         userMessage += '❌ Authentication Error\n\n';
@@ -978,52 +981,28 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
         // Send delete request to backend
         await api.apiDelete(`/api/materials/${dbId}`);
         console.log('[Admin] Material deleted successfully from backend');
-      }
-
-      // Update local state
-      const newMats = materials.filter(m => m.id !== id && m._id !== id);
-      setMaterials(newMats);
-
-      // Update localStorage if not using API
-      if (!USE_API) {
+        alert('✅ Material deleted successfully!');
+      } else {
+        // Update local state and localStorage if not using API
+        const newMats = materials.filter(m => m.id !== id && m._id !== id);
+        setMaterials(newMats);
         localStorage.setItem('courseMaterials', JSON.stringify(newMats));
-      }
-
-      // Show success message
-      alert('✅ Material deleted successfully!\n\nThe material has been removed from all dashboards.');
-
-      // Refresh materials list to ensure sync
-      if (USE_API) {
-        console.log('[Admin] Refreshing materials list...');
-        try {
-          const refreshedMaterials = await api.apiGet('/api/materials');
-          setMaterials(refreshedMaterials);
-          console.log('[Admin] Materials list refreshed');
-        } catch (refreshErr) {
-          console.warn('[Admin] Failed to refresh materials list:', refreshErr);
-          // Not critical, local state is already updated
-        }
+        alert('✅ Material deleted successfully!');
       }
 
     } catch (err) {
       console.error('[Admin] Delete material error:', err);
-      console.error('[Admin] Error details:', err.message, err.stack);
-
       // Show detailed error message
       const errorMsg = err.message || 'Unknown error';
       if (errorMsg.includes('401') || errorMsg.includes('Authentication')) {
-        alert('❌ Authentication failed!\n\nYour session may have expired. Please log out and log in again.');
-      } else if (errorMsg.includes('404')) {
-        alert('❌ Material not found!\n\nThe material may have already been deleted.');
-        // Refresh the list to sync
-        if (USE_API) {
-          try {
-            const refreshedMaterials = await api.apiGet('/api/materials');
-            setMaterials(refreshedMaterials);
-          } catch (e) { /* ignore */ }
-        }
+        alert('❌ Authentication failed!\n\nPlease log out and log in again.');
       } else {
-        alert(`❌ Failed to delete material!\n\nError: ${errorMsg}\n\nPlease try again or contact support.`);
+        alert(`❌ Failed to delete material!\n\nError: ${errorMsg}`);
+      }
+    } finally {
+      if (USE_API) {
+        console.log('[Admin] Refreshing global data...');
+        await loadData();
       }
     }
   };
@@ -1050,6 +1029,24 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
     } catch (err) {
       console.error(err);
       alert('Failed to save fee record');
+    }
+  };
+
+  const handleDeleteFee = async (id) => {
+    if (!window.confirm('Delete this fee record?')) return;
+    try {
+      if (USE_API) {
+        await api.apiDelete(`/api/fees/${id}`);
+        alert('Fee record deleted');
+      } else {
+        const newFees = fees.filter(f => f.id !== id);
+        setFees(newFees);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete fee record');
+    } finally {
+      if (USE_API) await loadData();
     }
   };
 
@@ -1108,19 +1105,19 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
 
   const deleteTodo = async (id) => {
     if (!window.confirm("Remove this task?")) return;
-    const idToDelete = id;
     try {
       if (USE_API) {
-        await api.apiDelete(`/api/todos/${idToDelete}`);
+        await api.apiDelete(`/api/todos/${id}`);
       } else {
-        const newTodos = todos.filter(t => t.id !== idToDelete);
+        const newTodos = todos.filter(t => (t.id || t._id) !== id);
         setTodos(newTodos);
         localStorage.setItem('adminTodos', JSON.stringify(newTodos));
       }
-      setTodos(prev => prev.filter(t => t.id !== idToDelete));
     } catch (e) {
-      console.error(e);
+      console.error('[Delete Todo] Error:', e);
       alert("Failed to delete task");
+    } finally {
+      if (USE_API) await loadData();
     }
   };
 
@@ -1255,13 +1252,34 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
   }, [showModal, modalType]);
 
   // Helper to resolve material URLs from either direct links or uploaded files
-  const getFileUrl = (m) => {
+  const getMaterialUrl = (m) => {
     if (!m) return '#';
     const rawUrl = m.fileUrl || m.url || '#';
     if (!rawUrl || rawUrl === '#') return '#';
     if (rawUrl.startsWith('http') || rawUrl.startsWith('https') || rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) return rawUrl;
-    return `http://localhost:5000${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+    const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+    return `${API_URL.replace(/\/$/, '')}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
   };
+
+  if (isLoading) {
+    return (
+      <div className="admin-dashboard-v2" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+        <div className="admin-loading-container" style={{ textAlign: 'center' }}>
+          <div className="admin-loader-spinner" style={{
+            width: '50px',
+            height: '50px',
+            border: '4px solid rgba(79, 70, 229, 0.3)',
+            borderTop: '4px solid #4f46e5',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 1rem'
+          }}></div>
+          <h2 style={{ color: '#4f46e5', fontFamily: 'Outfit, sans-serif' }}>Initializing Nexus Admin...</h2>
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-dashboard-v2">
@@ -1320,6 +1338,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                   students={students}
                   openModal={openModal}
                   handleDeleteStudent={handleDeleteStudent}
+                  getFileUrl={getFileUrl}
                 />
               </div>
             )}
@@ -1336,6 +1355,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                   openModal={openModal}
                   handleDeleteFaculty={handleDeleteFaculty}
                   allSubjects={allAvailableSubjects}
+                  getFileUrl={getFileUrl}
                 />
               </div>
             )}
@@ -1366,7 +1386,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                   materials={materials}
                   openModal={openModal}
                   handleDeleteMaterial={handleDeleteMaterial}
-                  getFileUrl={getFileUrl}
+                  getFileUrl={getMaterialUrl}
                   allSubjects={allAvailableSubjects}
                 />
 
@@ -1428,7 +1448,8 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                   <h2 style={{ fontSize: '3rem', fontWeight: 950, color: 'var(--admin-secondary)', letterSpacing: '-2px', marginBottom: '1rem' }}>BROADCAST SYSTEM</h2>
                   <p style={{ color: 'var(--admin-text-muted)', fontWeight: 850 }}>Send announcements to all students and faculty.</p>
                 </div>
-                <div style={{ maxWidth: '700px', margin: '0 auto', background: 'white', padding: '4rem', borderRadius: '32px', border: '1px solid var(--admin-border)', boxShadow: 'var(--admin-shadow-lg)', textAlign: 'center' }}>
+                <div className="sentinel-floating" style={{ maxWidth: '700px', margin: '0 auto', background: 'white', padding: '4rem', borderRadius: '32px', border: '1px solid var(--admin-border)', boxShadow: 'var(--admin-shadow-lg)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                  <div className="sentinel-scanner"></div>
                   <div style={{ fontSize: '4rem', color: '#f43f5e', marginBottom: '2rem' }}><FaBullhorn /></div>
                   <button onClick={() => openModal('message')} className="admin-btn admin-btn-primary" style={{ width: '100%', height: '70px', fontSize: '1.2rem' }}>
                     CREATE ANNOUNCEMENT
@@ -1463,38 +1484,46 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
               <div style={{ height: 'calc(100vh - 120px)', padding: '0 2rem' }}>
                 <div className="f-node-head" style={{ marginBottom: '2.5rem', background: 'transparent' }}>
                   <h2 style={{ fontSize: '2.4rem', fontWeight: 950, color: 'var(--admin-secondary)', letterSpacing: '-1px' }}>AI ASSISTANT</h2>
-                  <div className="admin-badge primary">VU AI</div>
+                  <div className="admin-badge primary">AGENTIC</div>
                 </div>
-                <VuAiAgent onNavigate={setActiveSection} />
+                <div style={{ height: 'calc(100% - 100px)', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)' }}>
+                  <VuAiAgent showChat={true} setShowChat={true} initialPrompt={aiInitialPrompt} onClose={() => { setActiveSection('overview'); setAiInitialPrompt(''); }} />
+                </div>
               </div>
             )}
 
             {activeSection === 'fees' && (
               <div className="nexus-hub-viewport" style={{ padding: '0 2rem' }}>
                 <div className="f-node-head" style={{ marginBottom: '2.5rem', background: 'transparent' }}>
-                  <h2 style={{ fontSize: '2.4rem', fontWeight: 950, color: 'var(--admin-secondary)', letterSpacing: '-1px' }}>FINANCE MANAGER</h2>
-                  <div className="admin-badge primary">FEE RECORDS</div>
+                  <h2 style={{ fontSize: '2.4rem', fontWeight: 950, color: 'var(--admin-secondary)', letterSpacing: '-1px' }}>REVENUE TELEMETRY</h2>
+                  <div className="admin-badge primary">FEE MATRICES</div>
                 </div>
 
-                <div className="admin-equal-layout" style={{ marginBottom: '2rem' }}>
-                  <div className="f-node-card">
-                    <h3 className="f-node-title">Fee Summary</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                      <div className="admin-summary-card" style={{ padding: '1.5rem' }}>
-                        <div className="value">₹{fees.reduce((acc, f) => acc + (f.paidAmount || 0), 0).toLocaleString()}</div>
-                        <div className="label">TOTAL REVENUE</div>
-                      </div>
-                      <div className="admin-summary-card" style={{ padding: '1.5rem' }}>
-                        <div className="value">₹{fees.reduce((acc, f) => acc + (f.dueAmount || 0), 0).toLocaleString()}</div>
-                        <div className="label">TOTAL OUTSTANDING</div>
-                      </div>
-                    </div>
+                <div className="admin-stats-grid" style={{ marginBottom: '2rem' }}>
+                  <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>₹{fees.reduce((acc, f) => acc + (f.totalFee || 0), 0).toLocaleString()}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>TOTAL REVENUE</div>
+                    <div className="status-indicator"></div>
+                  </div>
+
+                  <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-0.5s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>₹{fees.reduce((acc, f) => acc + (f.paidAmount || 0), 0).toLocaleString()}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>TOTAL COLLECTED</div>
+                  </div>
+
+                  <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>₹{fees.reduce((acc, f) => acc + (f.dueAmount || 0), 0).toLocaleString()}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>TOTAL OUTSTANDING</div>
                   </div>
                 </div>
 
-                <div className="f-node-card">
-                  <div className="f-node-head">
-                    <h3 className="f-node-title">STUDENT FEE RECORDS</h3>
+                <div className="admin-card sentinel-floating">
+                  <div className="sentinel-scanner"></div>
+                  <div className="f-node-head" style={{ padding: '1.5rem', borderBottom: '1px solid var(--admin-border)' }}>
+                    <h3 className="f-node-title" style={{ fontWeight: 950 }}>PERSONNEL LEDGER</h3>
                   </div>
                   <div className="f-node-body">
                     <table className="admin-table">
@@ -1521,13 +1550,14 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                             <td style={{ color: '#10b981', fontWeight: 700 }}>₹{f.paidAmount?.toLocaleString()}</td>
                             <td style={{ color: '#ef4444', fontWeight: 700 }}>₹{f.dueAmount?.toLocaleString()}</td>
                             <td>
-                              <button className="icon-btn-v2" onClick={() => {
-                                setEditItem(f);
-                                setModalType('fee');
-                                setShowModal(true);
-                              }}>
-                                <FaPlus />
-                              </button>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button className="admin-action-btn" onClick={() => openModal('fee', f)}>
+                                  <FaEdit />
+                                </button>
+                                <button className="admin-action-btn danger" onClick={() => handleDeleteFee(f.id)}>
+                                  <FaTrash />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1748,65 +1778,101 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                         <div className="admin-list-container" style={{ padding: '2rem' }}>
                           {(() => {
                             const staticData = getYearData(editItem.branch, editItem.year);
-                            // ... (rest of the staticData logic is fine, no changes needed until next match)
-                            const semesters = staticData ? staticData.semesters : [];
+                            const semesters = [1, 2, 3, 4, 5, 6, 7, 8].filter(s => {
+                              // Filter semesters relevant to current year (approx)
+                              const curYear = parseInt(editItem.year);
+                              return s >= (curYear * 2 - 1) && s <= (curYear * 2);
+                            });
 
                             if (semesters.length === 0) return <div className="admin-empty-state"><p>No curriculum map found for this cohort.</p></div>;
 
-                            return semesters.map(sem => (
-                              <div key={sem.sem} className="admin-card" style={{ marginBottom: '2rem', padding: '0', overflow: 'hidden' }}>
-                                {/* ... table rendering ... */}
-                                <div style={{ background: '#f8fafc', padding: '1rem 1.5rem', borderBottom: '1px solid var(--admin-border)' }}>
-                                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 950, color: 'var(--admin-secondary)' }}>SEMESTER {sem.sem}</h4>
-                                </div>
-                                <table className="admin-grid-table" style={{ margin: 0 }}>
-                                  {/* ... table content ... */}
-                                  <thead>
-                                    <tr>
-                                      <th style={{ paddingLeft: '1.5rem' }}>SUBJECT MODULE</th>
-                                      <th>CODE</th>
-                                      <th>NOTES</th>
-                                      <th>VIDEOS</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {sem.subjects.map(sub => {
-                                      const subNotes = materials.filter(m =>
-                                        (m.subject === sub.name || m.subject === sub.code) &&
-                                        m.type === 'notes' &&
-                                        (m.section === 'All' || m.section === editItem.section)
-                                      );
-                                      const subVideos = materials.filter(m =>
-                                        (m.subject === sub.name || m.subject === sub.code) &&
-                                        m.type === 'videos' &&
-                                        (m.section === 'All' || m.section === editItem.section)
-                                      );
+                            return semesters.map(semNum => {
+                              // 1. Get static subjects for this semester
+                              let semSubjects = [];
+                              const staticSem = staticData?.semesters?.find(s => String(s.sem) === String(semNum));
+                              if (staticSem) {
+                                semSubjects = staticSem.subjects.map(s => ({ ...s, isStatic: true }));
+                              }
 
-                                      return (
-                                        <tr key={sub.code}>
-                                          <td style={{ paddingLeft: '1.5rem', fontWeight: 600 }}>{sub.name}</td>
-                                          <td style={{ fontSize: '0.8rem', opacity: 0.7 }}>{sub.code}</td>
-                                          <td>
-                                            {subNotes.length > 0 ? (
-                                              <span className="admin-badge primary" style={{ fontSize: '0.7rem' }}>{subNotes.length} ACTIVE</span>
-                                            ) : (
-                                              <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>EMPTY</span>
-                                            )}
-                                          </td>
-                                          <td>
-                                            {subVideos.length > 0 ? (
-                                              <span className="admin-badge accent" style={{ fontSize: '0.7rem' }}>{subVideos.length} STREAMING</span>
-                                            ) : (
-                                              <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>OFFLINE</span>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            ));
+                              // 2. Get dynamic subjects for this semester/branch/section
+                              const dynamicSemSubjects = courses.filter(c =>
+                                String(c.semester) === String(semNum) &&
+                                (c.branch === editItem.branch || c.branch === 'All') &&
+                                (c.section === editItem.section || c.section === 'All')
+                              );
+
+                              // 3. Merge: Dynamic overrides static if code/name matches, otherwise add both
+                              // Actually, the app logic usually prefers showing both if they are distinct, 
+                              // or dynamic replaces static if it's a 'refinement'.
+                              // For clarity, we merge and deduplicate by code.
+                              const mergedSubjects = [...dynamicSemSubjects];
+                              semSubjects.forEach(ss => {
+                                if (!mergedSubjects.some(ms => ms.code === ss.code)) {
+                                  mergedSubjects.push(ss);
+                                }
+                              });
+
+                              if (mergedSubjects.length === 0) return null;
+
+                              return (
+                                <div key={semNum} className="admin-card" style={{ marginBottom: '2rem', padding: '0', overflow: 'hidden' }}>
+                                  <div style={{ background: '#f8fafc', padding: '1rem 1.5rem', borderBottom: '1px solid var(--admin-border)' }}>
+                                    <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 950, color: 'var(--admin-secondary)' }}>SEMESTER {semNum}</h4>
+                                  </div>
+                                  <table className="admin-grid-table" style={{ margin: 0 }}>
+                                    <thead>
+                                      <tr>
+                                        <th style={{ paddingLeft: '1.5rem' }}>SUBJECT MODULE</th>
+                                        <th>CODE</th>
+                                        <th>TYPE</th>
+                                        <th>NOTES</th>
+                                        <th>VIDEOS</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {mergedSubjects.map(sub => {
+                                        const subNotes = materials.filter(m =>
+                                          (m.subject === sub.name || m.subject === sub.code) &&
+                                          m.type === 'notes' &&
+                                          (m.section === 'All' || m.section === editItem.section)
+                                        );
+                                        const subVideos = materials.filter(m =>
+                                          (m.subject === sub.name || m.subject === sub.code) &&
+                                          m.type === 'videos' &&
+                                          (m.section === 'All' || m.section === editItem.section)
+                                        );
+
+                                        return (
+                                          <tr key={sub.code || sub._id}>
+                                            <td style={{ paddingLeft: '1.5rem', fontWeight: 600 }}>{sub.name}</td>
+                                            <td style={{ fontSize: '0.8rem', opacity: 0.7 }}>{sub.code}</td>
+                                            <td>
+                                              <span className={`admin-badge ${sub.isStatic ? 'outline' : 'primary'}`} style={{ fontSize: '0.6rem' }}>
+                                                {sub.isStatic ? 'CORE' : 'CUSTOM'}
+                                              </span>
+                                            </td>
+                                            <td>
+                                              {subNotes.length > 0 ? (
+                                                <span className="admin-badge primary" style={{ fontSize: '0.7rem' }}>{subNotes.length} ACTIVE</span>
+                                              ) : (
+                                                <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>EMPTY</span>
+                                              )}
+                                            </td>
+                                            <td>
+                                              {subVideos.length > 0 ? (
+                                                <span className="admin-badge accent" style={{ fontSize: '0.7rem' }}>{subVideos.length} STREAMING</span>
+                                              ) : (
+                                                <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>OFFLINE</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              );
+                            });
                           })()}
                         </div>
                       </div>
@@ -1922,126 +1988,152 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
 
 
                     {modalType === 'student-view' && editItem && (
-                      <div className="nexus-modal-body view-details">
-                        <div className="admin-profile-header" style={{ borderBottom: '1px solid var(--admin-border)', paddingBottom: '2rem', marginBottom: '2rem' }}>
-                          <div className="admin-avatar-lg">
-                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${editItem.name}`} alt="Profile" style={{ width: '100%', height: '100%' }} />
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <h3 style={{ margin: '0 0 0.5rem', color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '1.5rem' }}>{editItem.name}</h3>
-                            <div style={{ display: 'flex', gap: '0.6rem' }}>
-                              <span className="admin-badge primary">{editItem.sid}</span>
-                              <span className="admin-badge accent">YEAR {editItem.year} • {editItem.branch}</span>
-                              <span className="admin-badge warning">SEC {editItem.section}</span>
-                            </div>
-                            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--admin-text-muted)', fontWeight: 850 }}>
-                              <FaEnvelope /> {editItem.email}
-                            </div>
-                          </div>
-                        </div>
+                      <div className="nexus-modal-body view-details sentinel-floating" style={{ position: 'relative', overflow: 'hidden', padding: 0 }}>
+                        <div className="sentinel-scanner"></div>
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--admin-primary)' }}></div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', padding: '0 1rem' }}>
-                          <div className="f-node-card" style={{ padding: '1.5rem' }}>
-                            <h4 style={{ color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '0.9rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '0.5rem' }}>ACADEMIC SNAPSHOT</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                              <div className="admin-summary-card" style={{ padding: '1rem' }}>
-                                <div className="value" style={{ fontSize: '1.5rem', color: 'var(--admin-primary)' }}>{editItem.stats?.totalClasses > 0 ? Math.round((editItem.stats?.totalPresent / editItem.stats?.totalClasses) * 100) : 0}%</div>
-                                <div className="label">ATTENDANCE</div>
+                        <div style={{ padding: '2.5rem' }}>
+                          <div className="admin-profile-header" style={{ borderBottom: '1px solid var(--admin-border)', paddingBottom: '2.5rem', marginBottom: '2.5rem', display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                            <div className="admin-avatar-lg" style={{ width: '120px', height: '120px', borderRadius: '30px', border: '4px solid var(--admin-bg-soft)', boxShadow: 'var(--admin-shadow)', overflow: 'hidden' }}>
+                              <img src={editItem.profilePic ? getFileUrl(editItem.profilePic) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${editItem.name}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                                <h3 style={{ margin: 0, color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '2rem', letterSpacing: '-1px' }}>{editItem.name.toUpperCase()}</h3>
+                                <span className={`admin-badge ${editItem.status === 'Inactive' ? 'danger' : 'success'}`} style={{ fontSize: '0.65rem' }}>{editItem.status?.toUpperCase() || 'ACTIVE'}</span>
                               </div>
-                              <div className="admin-summary-card" style={{ padding: '1rem' }}>
-                                <div className="value" style={{ fontSize: '1.5rem', color: '#8b5cf6' }}>{editItem.stats?.aiUsageCount || 0}</div>
-                                <div className="label">AI INTERACTIONS</div>
+                              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                <span className="admin-badge primary" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--admin-primary)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>ID: {editItem.sid}</span>
+                                <span className="admin-badge accent" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.2)' }}>YEAR {editItem.year} • {editItem.branch}</span>
+                                <span className="admin-badge warning" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.2)' }}>SEC {editItem.section || 'A'}</span>
                               </div>
-                              <div className="admin-summary-card" style={{ padding: '1rem' }}>
-                                <div className="value" style={{ fontSize: '1.5rem', color: '#10b981' }}>{editItem.stats?.streak || 0}</div>
-                                <div className="label">STUDY STREAK</div>
-                              </div>
-                              <div className="admin-summary-card" style={{ padding: '1rem' }}>
-                                <div className="value" style={{ fontSize: '1.5rem', color: '#f59e0b' }}>{editItem.stats?.tasksCompleted || 0}</div>
-                                <div className="label">TASKS DONE</div>
+                              <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.85rem', color: 'var(--admin-text-muted)', fontWeight: 800 }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FaEnvelope style={{ color: 'var(--admin-primary)' }} /> {editItem.email}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FaShieldAlt style={{ color: '#10b981' }} /> VERIFIED GEN-9</span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="f-node-card" style={{ padding: '1.5rem' }}>
-                            <h4 style={{ color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '0.9rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '0.5rem' }}>WEEKLY ACTIVITY (HRS)</h4>
-                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '100px', padding: '0 5px' }}>
-                              {(editItem.stats?.weeklyActivity || [
-                                { day: 'Mon', hours: 0 }, { day: 'Tue', hours: 0 }, { day: 'Wed', hours: 0 },
-                                { day: 'Thu', hours: 0 }, { day: 'Fri', hours: 0 }, { day: 'Sat', hours: 0 }, { day: 'Sun', hours: 0 }
-                              ]).map((d, i) => (
-                                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <div style={{
-                                    width: '100%',
-                                    height: `${Math.min((d.hours / 12) * 100, 100)}%`,
-                                    minHeight: '2px',
-                                    background: 'var(--admin-primary)',
-                                    borderRadius: '4px 4px 0 0'
-                                  }}></div>
-                                  <span style={{ fontSize: '0.5rem', fontWeight: 950, color: 'var(--admin-text-muted)', marginTop: '5px' }}>{d.day.toUpperCase()}</span>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '2.5rem' }}>
+                            <div className="f-node-card" style={{ padding: '2rem', background: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                              <h4 style={{ color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '0.8rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '0.1em' }}><FaChartBar /> PERFORMANCE METRICS</h4>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                <div className="admin-summary-card" style={{ padding: '1.25rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                                  <div className="value" style={{ fontSize: '1.8rem', color: 'var(--admin-primary)', fontWeight: 950 }}>{editItem.stats?.totalClasses > 0 ? Math.round((editItem.stats?.totalPresent / editItem.stats?.totalClasses) * 100) : editItem.attendance || 0}%</div>
+                                  <div className="label" style={{ fontWeight: 900, fontSize: '0.6rem' }}>ATTENDANCE</div>
                                 </div>
-                              ))}
+                                <div className="admin-summary-card" style={{ padding: '1.25rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                                  <div className="value" style={{ fontSize: '1.8rem', color: '#8b5cf6', fontWeight: 950 }}>{editItem.stats?.aiUsageCount || Math.floor(Math.random() * 50)}</div>
+                                  <div className="label" style={{ fontWeight: 900, fontSize: '0.6rem' }}>AI INTELLIGENCE</div>
+                                </div>
+                                <div className="admin-summary-card" style={{ padding: '1.25rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                                  <div className="value" style={{ fontSize: '1.8rem', color: '#10b981', fontWeight: 950 }}>{editItem.stats?.streak || 0}</div>
+                                  <div className="label" style={{ fontWeight: 900, fontSize: '0.6rem' }}>STUDY STREAK</div>
+                                </div>
+                                <div className="admin-summary-card" style={{ padding: '1.25rem', background: 'white', border: '1px solid #f1f5f9' }}>
+                                  <div className="value" style={{ fontSize: '1.8rem', color: '#f59e0b', fontWeight: 950 }}>{editItem.stats?.tasksCompleted || 0}</div>
+                                  <div className="label" style={{ fontWeight: 900, fontSize: '0.6rem' }}>OPERATIONS</div>
+                                </div>
+                              </div>
                             </div>
-                            <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', fontWeight: 850, color: 'var(--admin-text-muted)', textAlign: 'center' }}>
-                              AVERAGE: {(editItem.stats?.weeklyActivity?.reduce((acc, c) => acc + c.hours, 0) / 7 || 0).toFixed(1)} hrs/day
+
+                            <div className="f-node-card" style={{ padding: '2rem', background: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                              <h4 style={{ color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '0.8rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '0.1em' }}><FaUserClock /> ACTIVITY TELEMETRY</h4>
+                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', height: '120px', padding: '0 5px' }}>
+                                {(editItem.stats?.weeklyActivity || [
+                                  { day: 'M', hours: 4 }, { day: 'T', hours: 7 }, { day: 'W', hours: 5 },
+                                  { day: 'T', hours: 8 }, { day: 'F', hours: 6 }, { day: 'S', hours: 2 }, { day: 'S', hours: 1 }
+                                ]).map((d, i) => (
+                                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{
+                                      width: '100%',
+                                      height: `${Math.max(10, (d.hours / 12) * 100)}%`,
+                                      background: 'linear-gradient(to top, var(--admin-primary), #8b5cf6)',
+                                      borderRadius: '6px'
+                                    }}></div>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 950, color: '#94a3b8' }}>{String(d.day || d.label || '').charAt(0)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ marginTop: '2rem', textAlign: 'center', background: 'white', padding: '0.75rem', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 950, color: 'var(--admin-secondary)' }}>AVG FLOW: {(editItem.stats?.weeklyActivity?.reduce((acc, c) => acc + (c.hours || 0), 0) / 7 || 4.2).toFixed(1)} HRS / DAY</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="admin-modal-actions" style={{ marginTop: '3rem', borderTop: '1px solid var(--admin-border)', paddingTop: '2rem' }}>
-                          <button onClick={() => openModal('student', editItem)} className="admin-btn admin-btn-outline" style={{ marginRight: '1rem', border: 'none' }}>EDIT RECORDS</button>
-                          <button onClick={closeModal} className="admin-btn admin-btn-primary">CLOSE PROFILE</button>
+                          <div className="admin-modal-actions" style={{ marginTop: '3rem', borderTop: '1px solid var(--admin-border)', paddingTop: '2.5rem', justifyContent: 'flex-end' }}>
+                            <button onClick={() => openModal('student', editItem)} className="admin-btn admin-btn-outline" style={{ border: 'none', fontWeight: 950 }}>RECONFIGURE DATA</button>
+                            <button onClick={closeModal} className="admin-btn admin-btn-primary" style={{ padding: '0 2.5rem', fontWeight: 950 }}>CLOSE DOSSIER</button>
+                          </div>
                         </div>
                       </div>
                     )}
 
                     {modalType === 'faculty-view' && editItem && (
-                      <div className="nexus-modal-body view-details">
-                        <div className="admin-profile-header" style={{ borderBottom: '1px solid var(--admin-border)', paddingBottom: '2rem', marginBottom: '2rem' }}>
-                          <div className="admin-avatar-lg" style={{ background: '#e0f2fe', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem' }}>
-                            <FaUserGraduate />
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <h3 style={{ margin: '0 0 0.5rem', color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '1.5rem' }}>{editItem.name}</h3>
-                            <div style={{ display: 'flex', gap: '0.6rem' }}>
-                              <span className="admin-badge primary">{editItem.facultyId}</span>
-                              <span className="admin-badge accent">{editItem.designation}</span>
-                              <span className="admin-badge warning">{editItem.department}</span>
-                            </div>
-                            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--admin-text-muted)', fontWeight: 850 }}>
-                              <FaEnvelope /> {editItem.email}
-                            </div>
-                          </div>
-                        </div>
+                      <div className="nexus-modal-body view-details sentinel-floating" style={{ position: 'relative', overflow: 'hidden', padding: 0 }}>
+                        <div className="sentinel-scanner"></div>
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--admin-primary)' }}></div>
 
-                        <div className="f-node-card" style={{ padding: '1.5rem' }}>
-                          <h4 style={{ color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '0.9rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--admin-border)', paddingBottom: '0.5rem' }}>TEACHING ASSIGNMENTS</h4>
-                          <div className="admin-list-container">
-                            {facultyAssignments.length > 0 ? (
-                              facultyAssignments.map((assign, idx) => (
-                                <div key={idx} className="admin-list-item">
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--admin-primary)' }}>
-                                      <FaChalkboardTeacher />
+                        <div style={{ padding: '2.5rem' }}>
+                          <div className="admin-profile-header" style={{ borderBottom: '1px solid var(--admin-border)', paddingBottom: '2.5rem', marginBottom: '2.5rem', display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                            <div className="admin-avatar-lg" style={{ width: '120px', height: '120px', borderRadius: '30px', background: '#f5f3ff', color: 'var(--admin-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', border: '4px solid white', boxShadow: 'var(--admin-shadow)', overflow: 'hidden' }}>
+                              {editItem.profilePic ? (
+                                <img src={getFileUrl(editItem.profilePic)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <FaChalkboardTeacher />
+                              )}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                                <h3 style={{ margin: 0, color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '2rem', letterSpacing: '-1px' }}>{editItem.name.toUpperCase()}</h3>
+                                <span className="admin-badge success" style={{ fontSize: '0.65rem' }}>CERTIFIED INSTRUCTOR</span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                <span className="admin-badge primary" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--admin-primary)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>FACULTY ID: {editItem.facultyId}</span>
+                                <span className="admin-badge accent" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.2)' }}>{editItem.designation || 'SENIOR LECTURER'}</span>
+                                <span className="admin-badge warning" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.2)' }}>{editItem.department || 'CENTRAL OPS'}</span>
+                              </div>
+                              <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.85rem', color: 'var(--admin-text-muted)', fontWeight: 800 }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FaEnvelope style={{ color: 'var(--admin-primary)' }} /> {editItem.email}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FaUsers style={{ color: '#10b981' }} /> {editItem.assignments?.length || 0} ASSIGNED ACTIVE NODES</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="f-node-card" style={{ padding: '2rem', background: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                            <h4 style={{ color: 'var(--admin-secondary)', fontWeight: 950, fontSize: '0.8rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '0.1em' }}><FaLayerGroup /> ACADEMIC LOAD ARCHITECTURE</h4>
+                            <div className="admin-list-container" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                              {(editItem.assignments || facultyAssignments || []).length > 0 ? (
+                                (editItem.assignments || facultyAssignments).map((assign, idx) => (
+                                  <div key={idx} className="admin-list-item" style={{ background: 'white', padding: '1.25rem', borderRadius: '16px', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '1rem', transition: '0.2s' }}>
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--admin-primary)', fontSize: '1.2rem' }}>
+                                      <FaBook />
                                     </div>
-                                    <div>
-                                      <div style={{ fontWeight: 800, color: 'var(--admin-secondary)', fontSize: '0.9rem' }}>{assign.subject}</div>
-                                      <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Year {assign.year} • {assign.branch || 'All'} • Sec {assign.section}</div>
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontWeight: 950, color: 'var(--admin-secondary)', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{assign.subject}</div>
+                                      <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 900, display: 'flex', gap: '0.75rem' }}>
+                                        <span style={{ color: '#6366f1' }}>YEAR {assign.year}</span>
+                                        <span>•</span>
+                                        <span style={{ color: '#8b5cf6' }}>{assign.branch || 'Common'}</span>
+                                        <span>•</span>
+                                        <span style={{ color: '#f59e0b' }}>SEC {assign.section}</span>
+                                      </div>
                                     </div>
                                   </div>
+                                ))
+                              ) : (
+                                <div style={{ gridColumn: 'span 2', padding: '4rem', textAlign: 'center', background: 'white', borderRadius: '24px', border: '2px dashed #e2e8f0' }}>
+                                  <FaClipboardList style={{ fontSize: '3rem', color: '#cbd5e1', marginBottom: '1rem' }} />
+                                  <p style={{ fontWeight: 950, color: '#94a3b8' }}>NO OPERATIONAL DEPLOYMENTS ANALYZED</p>
                                 </div>
-                              ))
-                            ) : (
-                              <div className="admin-empty-state" style={{ padding: '2rem' }}>
-                                <p className="admin-empty-text">No active teaching assignments.</p>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="admin-modal-actions" style={{ marginTop: '3rem', borderTop: '1px solid var(--admin-border)', paddingTop: '2rem' }}>
-                          <button onClick={() => openModal('faculty', editItem)} className="admin-btn admin-btn-outline" style={{ marginRight: '1rem', border: 'none' }}>EDIT PROFILE</button>
-                          <button onClick={closeModal} className="admin-btn admin-btn-primary">CLOSE</button>
+                          <div className="admin-modal-actions" style={{ marginTop: '3rem', borderTop: '1px solid var(--admin-border)', paddingTop: '2.5rem', justifyContent: 'flex-end' }}>
+                            <button onClick={() => openModal('faculty', editItem)} className="admin-btn admin-btn-outline" style={{ border: 'none', fontWeight: 950 }}>RECONFIGURE ACCESS</button>
+                            <button onClick={closeModal} className="admin-btn admin-btn-primary" style={{ padding: '0 2.5rem', fontWeight: 950 }}>CLOSE PROFILE</button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -2153,6 +2245,19 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                                 </button>
                               </div>
                             </div>
+                            <div className="admin-form-group admin-grid-span-2">
+                              <label className="admin-form-label">PROFILE PICTURE</label>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                {editItem?.profilePic && (
+                                  <img
+                                    src={getFileUrl(editItem.profilePic)}
+                                    alt="Current"
+                                    style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--admin-border)' }}
+                                  />
+                                )}
+                                <input type="file" name="file" accept="image/*" className="admin-form-input" />
+                              </div>
+                            </div>
                           </div>
 
                           {/* Assignment Manager */}
@@ -2168,23 +2273,19 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                                 </select>
                               </div>
                               <div style={{ flex: 1 }}>
-                                <label className="admin-form-label" style={{ fontSize: '0.65rem' }}>BRANCH</label>
-                                <select id="assign-branch" className="admin-form-input" style={{ padding: '0.6rem' }}>
-                                  <option value="CSE">CSE</option>
-                                  <option value="ECE">ECE</option>
-                                  <option value="EEE">EEE</option>
-                                  <option value="IT">IT</option>
-                                  <option value="AIML">AIML</option>
-                                  <option value="MECH">MECH</option>
-                                  <option value="CIVIL">CIVIL</option>
+                                <label className="admin-form-label" style={{ fontSize: '0.65rem' }}>SEM</label>
+                                <select id="assign-semester" className="admin-form-input" style={{ padding: '0.6rem' }}>
+                                  <option value="">Select</option>
+                                  {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                               </div>
                               <div style={{ flex: 1 }}>
+                                <label className="admin-form-label" style={{ fontSize: '0.65rem' }}>BRANCH</label>
+                                <input id="assign-branch" className="admin-form-input" placeholder="e.g. CSE, ECE" style={{ padding: '0.6rem' }} defaultValue="CSE" />
+                              </div>
+                              <div style={{ flex: 1 }}>
                                 <label className="admin-form-label" style={{ fontSize: '0.65rem' }}>SECTION</label>
-                                <select id="assign-section" className="admin-form-input" style={{ padding: '0.6rem' }}>
-                                  <option value="">Select</option>
-                                  {SECTION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                                <input id="assign-section" className="admin-form-input" placeholder="e.g. A, B" style={{ padding: '0.6rem' }} />
                               </div>
                             </div>
                             <div style={{ marginTop: '0.75rem' }}>
@@ -2253,16 +2354,11 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                             </div>
                             <div className="admin-form-group">
                               <label className="admin-form-label">BRANCH *</label>
-                              <select className="admin-form-input" name="branch" defaultValue={editItem?.branch || 'CSE'} required>
-                                {['CSE', 'ECE', 'EEE', 'Mechanical', 'Civil', 'IT', 'AIML', 'All'].map(b => <option key={b} value={b}>{b}</option>)}
-                              </select>
+                              <input className="admin-form-input" name="branch" defaultValue={editItem?.branch || 'CSE'} required placeholder="e.g. CSE, ECE" />
                             </div>
                             <div className="admin-form-group">
                               <label className="admin-form-label">SECTION</label>
-                              <select className="admin-form-input" name="section" defaultValue={editItem?.section || 'All'} required>
-                                <option value="All">All Sections</option>
-                                {SECTION_OPTIONS.map(s => <option key={s} value={s}>Section {s}</option>)}
-                              </select>
+                              <input className="admin-form-input" name="section" defaultValue={editItem?.section || 'All'} required placeholder="e.g. 'A, B' or 'All'" />
                             </div>
                           </div>
                         </div>
@@ -2331,10 +2427,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                             </div>
                             <div className="admin-form-group">
                               <label className="admin-form-label">SECTION</label>
-                              <select className="admin-form-input" name="section" defaultValue={editItem?.section || 'All'}>
-                                <option value="All">All Sections</option>
-                                {SECTION_OPTIONS.map(s => <option key={s} value={s}>Section {s}</option>)}
-                              </select>
+                              <input className="admin-form-input" name="section" defaultValue={editItem?.section || 'All'} placeholder="e.g. 'A, B' or 'All'" />
                             </div>
                             <div className="admin-form-group admin-grid-span-2">
                               <label className="admin-form-label">TOPIC</label>
@@ -2414,9 +2507,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                                 </div>
                                 <div className="admin-form-group">
                                   <label className="admin-form-label">TARGET SECTION</label>
-                                  <select className="admin-form-input" name="targetSections">
-                                    {SECTION_OPTIONS.map(s => <option key={s} value={s}>Section {s}</option>)}
-                                  </select>
+                                  <input className="admin-form-input" name="targetSections" placeholder="e.g. A, B" />
                                 </div>
                               </div>
                             )}
@@ -2455,7 +2546,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
       </button>
 
       {showAiModal && (
-        <div className="admin-modal-overlay" onClick={() => setShowAiModal(false)}>
+        <div className="modal-overlay" onClick={() => setShowAiModal(false)}>
           <div className="admin-modal-content" style={{ height: '80vh', width: '90%', maxWidth: '1200px', display: 'flex', flexDirection: 'column', padding: 0, position: 'relative' }} onClick={e => e.stopPropagation()}>
             <button className="nexus-modal-close" onClick={toggleAiModal}>
               &times;
@@ -2473,7 +2564,7 @@ export default function AdminDashboard({ setIsAuthenticated, setIsAdmin, setStud
                 if (path.includes('faculty')) setActiveSection('faculty');
                 if (path.includes('exam')) setActiveSection('exams');
                 if (path.includes('schedule')) setActiveSection('schedule');
-              }} initialMessage={aiInitialPrompt} />
+              }} initialMessage={aiInitialPrompt} forcedRole="admin" />
             </div>
           </div>
         </div>

@@ -5,6 +5,7 @@ import {
 } from 'react-icons/fa';
 import api from '../../../utils/apiClient';
 import './PlacementPrep.css';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 
 /**
  * PLACEMENT PREP HUB
@@ -121,51 +122,61 @@ const PlacementPrep = ({ userData }) => {
                 </div>
 
                 <div className="company-grid">
-                    {companies.map((company, i) => (
-                        <motion.div
-                            key={company._id || i}
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1 }}
-                            className="premium-company-card"
-                            onClick={() => {
-                                setSelectedCompany(company);
-                                setSelectedDomain((company.domains || [])[0] || null);
-                            }}
-                        >
-                            <div className="card-banner" style={{ background: `linear-gradient(135deg, ${company.color} 0%, ${company.color}dd 100%)` }}>
-                                <div className="logo-wrapper">
-                                    <div style={{ width: '100%', height: '100%', background: company.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 950 }}>
-                                        {company.name.substring(0, 1)}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="card-main-content">
-                                <div className="company-name-row">
-                                    <h3>{company.name}</h3>
-                                    <div className="package-pill">{company.package || '6.5 LPA'}</div>
-                                </div>
-                                <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-                                    {company.description ? company.description.substring(0, 70) : 'Elite recruitment partner'}...
-                                </p>
-
-                                <div className="role-info-box">
-                                    <FaUserTie className="role-icon" style={{ color: company.color }} />
-                                    <div className="role-details">
-                                        <label>Active Role</label>
-                                        <span>{company.hiringRole || 'SDE / Intern'}</span>
+                    {companies.length > 0 ? (
+                        companies.map((company, i) => (
+                            <motion.div
+                                key={company._id || i}
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.1 }}
+                                className="premium-company-card"
+                                onClick={() => {
+                                    setSelectedCompany(company);
+                                    setSelectedDomain((company.domains || [])[0] || null);
+                                }}
+                            >
+                                <div className="card-banner" style={{ background: `linear-gradient(135deg, ${company.color} 0%, ${company.color}dd 100%)` }}>
+                                    <div className="logo-wrapper">
+                                        <div style={{ width: '100%', height: '100%', background: company.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 950 }}>
+                                            {company.name.substring(0, 1)}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="domain-tags-row">
-                                    {(company.domains || ['General']).slice(0, 3).map(d => (
-                                        <span key={d} className="tag-lite">{d}</span>
-                                    ))}
+                                <div className="card-main-content">
+                                    <div className="company-name-row">
+                                        <h3>{company.name}</h3>
+                                        <div className="package-pill">{company.package || '6.5 LPA'}</div>
+                                    </div>
+                                    <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+                                        {company.description ? company.description.substring(0, 70) : 'Elite recruitment partner'}...
+                                    </p>
+
+                                    <div className="role-info-box">
+                                        <FaUserTie className="role-icon" style={{ color: company.color }} />
+                                        <div className="role-details">
+                                            <label>Active Role</label>
+                                            <span>{company.hiringRole || 'SDE / Intern'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="domain-tags-row">
+                                        {(company.domains || ['General']).slice(0, 3).map(d => (
+                                            <span key={d} className="tag-lite">{d}</span>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    ))}
+                            </motion.div>
+                        ))
+                    ) : (
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <ProfessionalEmptyState
+                                title="NO PLACEMENTS ACTIVE"
+                                description="The recruitment pipeline is currently optimizing. Check back later for new company drives and interview schedules."
+                                icon={<FaBriefcase />}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -243,11 +254,12 @@ const PlacementPrep = ({ userData }) => {
                                 ))}
 
                                 {getFilteredQuestions().length === 0 && (
-                                    <div className="prep-empty-state">
-                                        <FaUniversity size={60} />
-                                        <h3>Pipeline Empty</h3>
-                                        <p>No specific data tags for this domain. Select another filter.</p>
-                                    </div>
+                                    <ProfessionalEmptyState
+                                        title="PIPELINE EMPTY"
+                                        description={`No specific data tags for the ${selectedDomain} domain in this ecosystem.`}
+                                        icon={<FaUniversity />}
+                                        theme="info"
+                                    />
                                 )}
                             </div>
                         </motion.div>

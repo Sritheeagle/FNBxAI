@@ -30,15 +30,31 @@ const MaterialSection = ({ materials, openModal, handleDeleteMaterial, getFileUr
         <div className="animate-fade-in">
             <header className="admin-page-header">
                 <div className="admin-page-title">
-                    <h1>MATERIAL <span>MANAGER</span></h1>
-                    <p>Total Files: {filteredMaterials.length}</p>
+                    <h1>ASSET <span>REPOSITORY</span></h1>
+                    <p>Strategic management of academic data nodes and resources</p>
                 </div>
                 <div className="admin-action-bar" style={{ margin: 0 }}>
                     <button className="admin-btn admin-btn-primary" onClick={() => openModal('material')}>
-                        <FaPlus /> UPLOAD MATERIAL
+                        <FaPlus /> UPLOAD ASSET
                     </button>
                 </div>
             </header>
+
+            {/* Asset Telemetry */}
+            <div className="admin-stats-grid mb-lg">
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '0s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#f5f3ff', color: '#8b5cf6', width: '50px', height: '50px', borderRadius: '14px' }}><FaDatabase /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{materials.filter(m => m.type !== 'videos').length}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>DOCUMENT NODES</div>
+                </div>
+                <div className="admin-summary-card sentinel-floating" style={{ animationDelay: '-1s' }}>
+                    <div className="sentinel-scanner"></div>
+                    <div className="summary-icon-box" style={{ background: '#eff6ff', color: '#6366f1', width: '50px', height: '50px', borderRadius: '14px' }}><FaEye /></div>
+                    <div className="value" style={{ fontWeight: 950, fontSize: '2.8rem', marginTop: '1rem' }}>{materials.filter(m => m.type === 'videos').length}</div>
+                    <div className="label" style={{ fontWeight: 900, letterSpacing: '0.1em', fontSize: '0.65rem', color: '#94a3b8' }}>VIDEO STREAMS</div>
+                </div>
+            </div>
 
             <div className="admin-filter-bar">
                 <div style={{ flex: 1 }}>
@@ -60,17 +76,18 @@ const MaterialSection = ({ materials, openModal, handleDeleteMaterial, getFileUr
                 </select>
             </div>
 
-            <div className="admin-card">
+            <div className="admin-card sentinel-floating">
+                <div className="sentinel-scanner"></div>
                 <div className="admin-table-wrap">
                     <table className="admin-grid-table">
                         <thead>
-                            <tr>
-                                <th>TITLE</th>
-                                <th>SUBJECT</th>
-                                <th>YEAR/SEC</th>
-                                <th>TOPIC</th>
-                                <th>TYPE</th>
-                                <th>ACTIONS</th>
+                            <tr style={{ background: '#f8fafc' }}>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>TITLE</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>SUBJECT</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>YEAR/SEC</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>TOPIC</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>TYPE</th>
+                                <th style={{ fontWeight: 950, letterSpacing: '0.05em' }}>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>

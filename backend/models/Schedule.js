@@ -7,7 +7,7 @@ const scheduleSchema = new mongoose.Schema({
     faculty: { type: String, required: true },
     room: { type: String },
     type: { type: String, enum: ['Theory', 'Lab', 'Tutorial', 'Seminar', 'Other'], default: 'Theory' },
-    year: { type: Number, required: true },
+    year: { type: String, required: true },
     section: { type: String, required: true },
     branch: { type: String, required: true },
     semester: { type: Number, default: 1 },

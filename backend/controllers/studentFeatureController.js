@@ -1,9 +1,12 @@
 const Student = require('../models/Student');
 const Attendance = require('../models/Attendance');
 const Mark = require('../models/Mark');
+const Faculty = require('../models/Faculty'); // Added for absentee lookup
+const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const sse = require('../sse');
+const ActiveSession = require('../models/ActiveSession'); // OTP Model
 
 // Helper: Get Student Folder Path
 const getStudentFolder = (sid) => {
@@ -53,13 +56,13 @@ exports.markAttendance = async (req, res) => {
     }
 
     // Default Single Mark
-    const { studentId, date, subject, status, recordedBy } = req.body;
+    const { studentId, date, subject, status, recordedBy, period = 1 } = req.body;
 
     try {
         // 1. Save to DB
-        const update = { status, recordedBy, period: 1 };
+        const update = { status, recordedBy, period, subject };
         const record = await Attendance.findOneAndUpdate(
-            { studentId, date, subject },
+            { studentId, date, period },
             update,
             { upsert: true, new: true }
         );
@@ -79,18 +82,19 @@ exports.markAttendance = async (req, res) => {
 };
 
 exports.markBulkAttendance = async (req, res) => {
-    const { date, subject, year, section, facultyName, records } = req.body;
+    let { date, subject, year, section, facultyName, records, period = 1 } = req.body;
+    year = String(year || '').replace(/[^0-9]/g, '');
+    section = String(section || '').replace(/Section\s*/i, '').trim().toUpperCase();
     try {
         const results = [];
         for (const r of records) {
-            const update = { status: r.status, recordedBy: facultyName || 'Faculty', period: 1, year, section };
+            const update = { status: r.status, recordedBy: facultyName || 'Faculty', period, year, section, subject };
             const record = await Attendance.findOneAndUpdate(
-                { studentId: r.studentId, date, subject },
+                { studentId: r.studentId, date, period },
                 update,
                 { upsert: true, new: true }
             );
             results.push(record);
-
         }
 
         // Background Sync unique students
@@ -111,45 +115,81 @@ exports.markBulkAttendance = async (req, res) => {
     }
 };
 
+exports.batchUpdateAttendance = async (req, res) => {
+    const { date, period, year, section, branch, subject, status = 'Present' } = req.body;
+    try {
+        if (!date || !period || !year || !section) {
+            return res.status(400).json({ error: 'Date, period, year and section are required' });
+        }
+
+        // 1. Find all students in this section
+        const query = { year, section };
+        if (branch) query.branch = branch;
+        const students = await Student.find(query).select('sid');
+
+        if (students.length === 0) {
+            return res.json({ message: 'No students found in this section', count: 0 });
+        }
+
+        const results = [];
+        for (const s of students) {
+            const update = {
+                status,
+                recordedBy: 'Admin (Batch)',
+                period,
+                year,
+                section,
+                branch,
+                subject: subject || 'General'
+            };
+
+            const record = await Attendance.findOneAndUpdate(
+                { studentId: s.sid, date, period },
+                update,
+                { upsert: true, new: true }
+            );
+            results.push(record);
+
+            // Sync student file in background
+            (async () => {
+                try {
+                    const fullHistory = await Attendance.find({ studentId: s.sid }).sort({ date: -1 });
+                    updateStudentFile(s.sid, 'attendance_record.json', fullHistory);
+                } catch (e) { }
+            })();
+        }
+
+        // Notify via SSE
+        sse.broadcast({ resource: 'attendance', action: 'batch-update', metadata: { date, period, year, section } });
+
+        res.json({ message: `Successfully marked ${results.length} students as ${status}`, count: results.length });
+    } catch (err) {
+        console.error("Batch Attendance Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 exports.getBulkAttendance = async (req, res) => {
     try {
-        const { date, year, section, subject } = req.query;
+        let { date, year, section, subject, period } = req.query;
+        year = year ? String(year).replace(/[^0-9]/g, '') : year;
+        section = section ? String(section).replace(/Section\s*/i, '').trim().toUpperCase() : section;
         // If date is provided, return status for that specific day
         if (date) {
-            // Find records for this class on this day
-            // We need to look up students? Or just search attendance?
-            // Attendance table stores studentId.
-            // But we actually need to match the "Year/Section" filter indirectly if it's not stored in Attendance.
-            // If I updated markBulkAttendance to store year/section, we are good.
-            // Otherwise we accept loosely.
-
-            // To be robust, let's assume we search by subject/date and filter by student IDs if needed?
-            // Actually, querying by date + subject is usually enough if the subject is unique to the class.
-
-            const query = { date, subject };
+            const query = { date };
+            if (subject) query.subject = subject;
             if (year) query.year = year;
             if (section) query.section = section;
-
-            // If the schema doesn't have year/section, this might fail to filter correctly if multiple sections have same subject.
-            // Let's assume we added year/section in the bulk update (which we did above).
+            if (period) query.period = period;
 
             const records = await Attendance.find(query);
-            // Return shape expected: [{ records: [...] }] or just the records? 
-            // Frontend expects: `existing[0].records` -> so it expects an array of "Session" objects?
-            // The frontend logic is:
-            /*
-             if (existing && existing.length > 0) {
-                const record = existing[0]; 
-                record.records.forEach...
-             }
-            */
-            // So we need to wrap it to look like a "Session Document"
 
             const wrapped = [{
                 date,
                 subject,
                 year,
                 section,
+                period,
                 records: records.map(r => ({ studentId: r.studentId, status: r.status }))
             }];
 
@@ -357,30 +397,90 @@ exports.getStudentOverview = async (req, res) => {
             });
         } else {
             // Real Data Fetching
+            const Course = require('../models/Course'); // Ensure Course model is loaded
 
-            // 1. Attendance
+            // 0. Fetch All Enrolled Courses (Standard + Dynamic) to initialize empty states
+            // IMPORTANT: Exclude hidden/deleted courses
+            const sYear = String(student.year || '').replace(/[^0-9]/g, '');
+            const sSec = String(student.section || '').replace(/Section\s*/i, '').trim().toUpperCase();
+
+            const enrolledCourses = await Course.find({
+                $and: [
+                    { year: { $in: [sYear, parseInt(sYear), 'All'] } },
+                    {
+                        $or: [
+                            { branch: student.branch },
+                            { branch: 'All' },
+                            { branch: { $regex: new RegExp(`^${student.branch}$`, 'i') } }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { section: sSec },
+                            { section: 'All' },
+                            { section: { $regex: new RegExp(`^${sSec}$`, 'i') } }
+                        ]
+                    },
+                    { isHidden: { $ne: true } },  // Exclude deleted/hidden courses
+                    { status: { $ne: 'Inactive' } } // Exclude inactive courses
+                ]
+            });
+
+            // Initialize details for ALL enrolled courses (even if no records exist yet)
+            enrolledCourses.forEach(c => {
+                attDetails[c.name] = { totalClasses: 0, totalPresent: 0, totalAbsent: 0, percentage: 0 };
+                acaDetails[c.name] = { percentage: 0, categorized: { cla: {}, module1: {}, module2: {} } };
+            });
+
+            // 1. Attendance (Overlay actual data)
             const attendanceRecords = await Attendance.find({ studentId: sid });
             attendanceRecords.forEach(rec => {
-                if (!attDetails[rec.subject]) {
-                    attDetails[rec.subject] = { totalClasses: 0, totalPresent: 0, totalAbsent: 0, percentage: 0 };
+                // Determine Subject Name (Handle loosely or precise)
+                // If subject not in enrolled list (legacy?), add it.
+                // Note: rec.subject might be "Computer Networks" while course.name is "Computer Networks". Case matching?
+                // Let's rely on exact string match for now, or fallback close match if needed.
+
+                let subjName = rec.subject;
+                // Try to match with existing keys case-insensitively if direct match missing
+                if (!attDetails[subjName]) {
+                    const match = Object.keys(attDetails).find(k => k.toLowerCase() === subjName.toLowerCase());
+                    if (match) subjName = match;
+                    else {
+                        // Init if truly new (legacy data not in current course list?)
+                        attDetails[subjName] = { totalClasses: 0, totalPresent: 0, totalAbsent: 0, percentage: 0 };
+                    }
                 }
-                attDetails[rec.subject].totalClasses++;
-                if (rec.status === 'Present') attDetails[rec.subject].totalPresent++;
-                else attDetails[rec.subject].totalAbsent++;
+
+                attDetails[subjName].totalClasses++;
+                if (rec.status === 'Present') attDetails[subjName].totalPresent++;
+                else attDetails[subjName].totalAbsent++;
             });
+
             Object.keys(attDetails).forEach(subj => {
                 const s = attDetails[subj];
                 s.percentage = s.totalClasses > 0 ? Math.round((s.totalPresent / s.totalClasses) * 100) : 0;
             });
 
-            // 2. Marks
+            // 2. Marks (Overlay actual data)
             marksRecords = await Mark.find({ studentId: sid });
 
-            // Group by subject for calculations
-            const subjects = [...new Set(marksRecords.map(m => m.subject))];
+            // Ensure marks also respect the subject map
+            const marksBySubject = {};
+            marksRecords.forEach(m => {
+                let subjName = m.subject;
+                if (!acaDetails[subjName]) {
+                    const match = Object.keys(acaDetails).find(k => k.toLowerCase() === subjName.toLowerCase());
+                    if (match) subjName = match;
+                    else {
+                        acaDetails[subjName] = { percentage: 0, categorized: { cla: {}, module1: {}, module2: {} } };
+                    }
+                }
+                if (!marksBySubject[subjName]) marksBySubject[subjName] = [];
+                marksBySubject[subjName].push(m);
+            });
 
-            subjects.forEach(subj => {
-                const records = marksRecords.filter(r => r.subject === subj);
+            Object.keys(acaDetails).forEach(subj => {
+                const records = marksBySubject[subj] || [];
                 const percentages = records.map(m => (m.marksObtained / m.maxMarks) * 100);
                 const avg = percentages.length ? percentages.reduce((a, b) => a + b, 0) / percentages.length : 0;
 
@@ -545,9 +645,13 @@ exports.getAdminMarksOverview = async (req, res) => {
 
         let studentQuery = {};
         if (year) studentQuery.year = year;
-        if (section) studentQuery.section = section;
-
-        const students = await Student.find(studentQuery).select('sid');
+        if (section) {
+            // Flexible section matching: "A" matches "A", "A, B", "B, A", "All"
+            studentQuery.$or = [
+                { section: { $regex: /^all$/i } },
+                { section: { $regex: new RegExp(`(^|[\\s,])(${section})($|[\\s,])`, 'i') } }
+            ];
+        }
         const sids = students.map(s => s.sid);
 
         markQuery.studentId = { $in: sids };
@@ -588,8 +692,15 @@ exports.getAdminMarksOverview = async (req, res) => {
 
 exports.getClassAttendance = async (req, res) => {
     try {
-        const { year, section, branch } = req.params;
-        const students = await Student.find({ year, section, branch }).select('sid name');
+        let { year, section, branch } = req.params;
+        const sYear = String(year || '').replace(/[^0-9]/g, '');
+        const sSec = String(section || '').replace(/Section\s*/i, '').trim().toUpperCase();
+
+        const students = await Student.find({
+            year: sYear,
+            section: sSec,
+            branch
+        }).select('sid name');
 
         const attendance = await Attendance.find({
             studentId: { $in: students.map(s => s.sid) }
@@ -616,3 +727,335 @@ exports.getClassAttendance = async (req, res) => {
     }
 };
 
+
+exports.getAbsenteesForDate = async (req, res) => {
+    try {
+        const { date, year, section, branch } = req.query;
+        if (!date || !year || !section) {
+            return res.status(400).json({ error: 'Missing required parameters: date, year, section' });
+        }
+
+        // Find all attendance records for this section on this date where status is Absent
+        // We match by year/section indirectly. 
+        // Option A: If we saved year/section in Attendance records (we started doing this in markBulkAttendance).
+        // Option B: Find students in this section first, then match IDs.
+
+        // Let's go with Option B to be safe across legacy data, but Option A is faster if data exists.
+        // We'll use a mix: Query Attendance where date matches. Then filter by year/section if available, 
+        // OR filter by studentId list from Student collection.
+
+        // 1. Get Students in this Section
+        const studentQuery = { year, section };
+        if (branch) studentQuery.branch = branch;
+        const students = await Student.find(studentQuery).select('sid name');
+        const sids = students.map(s => s.sid);
+        const studentMap = students.reduce((acc, s) => { acc[s.sid] = s.name; return acc; }, {});
+
+        // 2. Find Absenses
+        const absencyRecords = await Attendance.find({
+            studentId: { $in: sids },
+            date: date,
+            status: 'Absent'
+        });
+
+        // 3. Fetch Faculty Details
+        // recordedBy contains the Faculty ID (string). We need to resolve this to a name.
+        // We filter for valid ObjectIds to avoid CastErrors if 'Admin' or other strings are used.
+        const facultyIds = [...new Set(absencyRecords.map(r => r.recordedBy).filter(id => id && mongoose.Types.ObjectId.isValid(id)))];
+        let facultyMap = {};
+
+        if (facultyIds.length > 0) {
+            const facultyDocs = await Faculty.find({ _id: { $in: facultyIds } }).select('name');
+            facultyMap = facultyDocs.reduce((acc, f) => { acc[f._id.toString()] = f.name; return acc; }, {});
+        }
+
+        // 4. Group by Student
+        const absenteeMap = {};
+        absencyRecords.forEach(record => {
+            if (!absenteeMap[record.studentId]) {
+                absenteeMap[record.studentId] = {
+                    studentId: record.studentId,
+                    studentName: studentMap[record.studentId] || 'Unknown',
+                    periods: []
+                };
+            }
+            absenteeMap[record.studentId].periods.push({
+                subject: record.subject,
+                status: record.status,
+                period: record.period || 1,
+                facultyName: facultyMap[record.recordedBy] || 'System'
+            });
+        });
+
+        res.json(Object.values(absenteeMap));
+
+    } catch (err) {
+        console.error("Error fetching absentees:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+/**
+ * GET /api/attendance/daily-report
+ * Returns comprehensive daily attendance report (Hour-wise)
+ * Query: date, year, section, branch
+ */
+exports.getDailyAttendanceReport = async (req, res) => {
+    try {
+        let { date, year, section, branch } = req.query;
+        year = String(year || '').replace(/[^0-9]/g, '');
+        section = String(section || '').replace(/Section\s*/i, '').trim().toUpperCase();
+
+        if (!date || !year || !section) {
+            return res.status(400).json({ error: 'Missing required parameters: date, year, section' });
+        }
+
+        // 1. Get All Students in Section
+        const studentQuery = { year, section };
+        if (branch) studentQuery.branch = branch;
+        const students = await Student.find(studentQuery).select('sid name profilePic');
+        const sids = students.map(s => s.sid);
+
+        // 2. Get All Attendance Records for Date & Section (Universal check across all subjects/periods)
+        // We match by studentId to be sure.
+        const attendanceRecords = await Attendance.find({
+            studentId: { $in: sids },
+            date: date
+        });
+
+        // 3. Process Report
+        const report = students.map(student => {
+            const studentRecords = attendanceRecords.filter(r => r.studentId === student.sid);
+
+            // Determine periods (assuming 1-8 max, or dynamic based on records)
+            // We'll standardise to 5 hours as per user request example, or map existing.
+            // Let's gather all unique periods found for this student.
+            const periodData = {};
+            studentRecords.forEach(r => {
+                const p = r.period || 1;
+                periodData[p] = {
+                    status: r.status || 'Present',
+                    subject: r.subject || 'General'
+                };
+            });
+
+            const maxPeriod = 5;
+            const hourWise = [];
+            let presentCount = 0;
+            let absentCount = 0;
+
+            for (let i = 1; i <= maxPeriod; i++) {
+                const entry = periodData[i];
+                const status = entry ? entry.status : 'N/A';
+                const subject = entry ? entry.subject : 'General';
+
+                let symbol = '-';
+                if (status === 'Present') { presentCount++; symbol = 'P'; }
+                if (status === 'Absent') { absentCount++; symbol = 'A'; }
+
+                hourWise.push({ period: i, status, symbol, subject });
+            }
+
+            const totalRecorded = presentCount + absentCount;
+            let percentage = 0;
+            if (totalRecorded > 0) {
+                percentage = Math.round((presentCount / totalRecorded) * 100);
+            }
+
+            // Status Logic
+            let dailyStatus = 'N/A';
+            if (totalRecorded > 0) {
+                if (percentage >= 75) dailyStatus = 'Regular';
+                else if (percentage >= 40) dailyStatus = 'Irregular';
+                else dailyStatus = 'Absent';
+            }
+
+            return {
+                sid: student.sid,
+                name: student.name,
+                profilePic: student.profilePic,
+                hourWise,
+                stats: {
+                    present: presentCount,
+                    absent: absentCount,
+                    total: totalRecorded,
+                    percentage
+                },
+                dailyStatus
+            };
+        });
+
+        res.json(report);
+
+    } catch (err) {
+        console.error("Daily Report Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Start Live OTP Session
+exports.createSessionOTP = async (req, res) => {
+    try {
+        let { facultyId, year, section, branch, subject, period = 1, duration = 60 } = req.body;
+        year = String(year || '').replace(/[^0-9]/g, '');
+        section = String(section || '').replace(/Section\s*/i, '').trim().toUpperCase();
+
+        // Generate 4 digit code
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Set expiry
+        const validUntil = new Date(Date.now() + duration * 1000);
+
+        const session = new ActiveSession({
+            code,
+            facultyId,
+            section: { year, section, branch },
+            subject,
+            period,
+            validUntil
+        });
+
+        await session.save();
+
+        res.json({ code, validUntil, message: 'Session Active' });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Verify OTP & Mark Attendance
+exports.verifySessionOTP = async (req, res) => {
+    try {
+        const { code, studentId, studentName } = req.body; // studentName optional for logging
+
+        // 1. Find Session
+        const session = await ActiveSession.findOne({ code });
+        if (!session) {
+            return res.status(404).json({ error: 'Invalid or Expired Code' });
+        }
+
+        // 2. Check Expiry (Double check, though TTL handles cleanup eventually)
+        if (new Date() > session.validUntil) {
+            return res.status(400).json({ error: 'Code Expired' });
+        }
+
+        // 3. Mark Attendance
+        // We use the date from the time of marking
+        const dateStr = new Date().toISOString().split('T')[0];
+
+        // Check if already marked to prevent dupes (or use upsert)
+        const existing = await Attendance.findOne({
+            studentId,
+            date: dateStr,
+            period: session.period || 1
+        });
+
+        if (existing) {
+            existing.status = 'Present';
+            existing.recordedBy = 'OTP_VERIFY';
+            await existing.save();
+
+            // Broadcast Real-time Update
+            if (sse && sse.broadcast) {
+                sse.broadcast('attendance_update', {
+                    studentId,
+                    status: 'Present',
+                    subject: session.subject,
+                    section: session.section
+                });
+            }
+            return res.json({ success: true, message: 'Attendance Updated', subject: session.subject });
+        }
+
+        const newRecord = new Attendance({
+            studentId,
+            date: dateStr,
+            subject: session.subject,
+            year: session.section.year,
+            section: session.section.section,
+            status: 'Present',
+            period: session.period || 1,
+            recordedBy: 'OTP_VERIFY'
+        });
+
+        await newRecord.save();
+
+        // Broadcast Real-time Update
+        if (sse && sse.broadcast) {
+            sse.broadcast('attendance_update', {
+                studentId,
+                status: 'Present',
+                subject: session.subject,
+                section: session.section
+            });
+        }
+
+        res.json({ success: true, message: 'Attendance Marked Successfully', subject: session.subject });
+
+    } catch (err) {
+        console.error("OTP Verify Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.getStudentDailyAttendance = async (req, res) => {
+    try {
+        const studentId = req.params.id;
+        const allRecords = await Attendance.find({ studentId }).sort({ date: -1 });
+
+        // Group by Date
+        const grouped = {};
+        allRecords.forEach(r => {
+            const d = r.date;
+            if (!grouped[d]) grouped[d] = { date: d, hourWise: {}, total: 0, present: 0, absent: 0 };
+
+            // Hour wise
+            const h = r.period || 1;
+            grouped[d].hourWise[h] = r.status || 'Present';
+
+            // Stats
+            if (r.status === 'Present' || r.status === 'Late') {
+                grouped[d].present++;
+                grouped[d].total++;
+            }
+            if (r.status === 'Absent') {
+                grouped[d].absent++;
+                grouped[d].total++;
+            }
+        });
+
+        const report = Object.values(grouped).map(day => {
+            let percentage = 0;
+            if (day.total > 0) {
+                percentage = Math.round((day.present / day.total) * 100);
+            }
+
+            // Status Logic (User Rule: Present = All -> Regular, >75% Regular)
+            let status = 'Absent';
+            if (percentage >= 75) status = 'Regular';
+            else if (percentage >= 40) status = 'Irregular';
+            else status = 'Absent';
+
+            // Hour-wise array
+            const maxP = Math.max(5, ...Object.keys(day.hourWise).map(Number).filter(n => !isNaN(n)));
+            const periods = [];
+            for (let i = 1; i <= maxP; i++) {
+                periods.push({ period: i, status: day.hourWise[i] || 'N/A' });
+            }
+
+            return {
+                date: day.date,
+                periods,
+                present: day.present,
+                absent: day.absent,
+                percentage,
+                status
+            };
+        });
+
+        res.json(report);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};

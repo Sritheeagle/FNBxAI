@@ -1,18 +1,47 @@
-/* CRYSTAL-CLEAN AI AGENT THEME */
+/* SENTINEL ASSISTANT - TACTICAL IDENTITY v3.0 */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
-    /* Alignment with Dashboard Palette */
-    --fa-primary: #4f46e5;
-    --fa-secondary: #6366f1;
-    --fa-accent: #10b981;
-    --fa-bg: #ffffff;
-    --fa-surface: #f8fafc;
-    --fa-text-main: #0f172a;
-    --fa-text-sub: #64748b;
-    --fa-border: rgba(15, 23, 42, 0.08);
-    --fa-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.08);
+/* THEME: STUDENT (Default - Friendly Purple/Indigo) */
+.role-student {
+    --fa-primary: #6366f1;
+    --fa-secondary: #818cf8;
+    --fa-accent: #a855f7;
+    --fa-bg: rgba(255, 255, 255, 0.7);
+    --fa-bg-gradient: linear-gradient(135deg, #e0e7ff 0%, #fae8ff 100%);
+    --fa-text-main: #1e1b4b;
+    --fa-text-sub: #6b7280;
+    --fa-border: rgba(99, 102, 241, 0.2);
+    --fa-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.15);
+    --fa-bubble-user: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
+/* THEME: FACULTY (Professional Teal/Sky) */
+.role-faculty {
+    --fa-primary: #0ea5e9;
+    --fa-secondary: #38bdf8;
+    --fa-accent: #0f766e;
+    --fa-bg: rgba(240, 253, 250, 0.85);
+    --fa-bg-gradient: linear-gradient(to bottom right, #f0f9ff, #e0f2fe);
+    --fa-text-main: #0c4a6e;
+    --fa-text-sub: #475569;
+    --fa-border: rgba(14, 165, 233, 0.2);
+    --fa-shadow: 0 20px 40px -10px rgba(14, 165, 233, 0.15);
+    --fa-bubble-user: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+}
+
+/* THEME: ADMIN (Sentinel - Dark/Matrix) */
+.role-admin {
+    --fa-primary: #10b981;
+    --fa-secondary: #34d399;
+    --fa-accent: #ef4444;
+    --fa-bg: rgba(15, 23, 42, 0.95);
+    --fa-bg-gradient: linear-gradient(to bottom, #0f172a, #111827);
+    --fa-text-main: #ecfdf5;
+    --fa-text-sub: #94a3b8;
+    --fa-border: rgba(16, 185, 129, 0.3);
+    --fa-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.4);
+    --fa-bubble-user: linear-gradient(135deg, #059669 0%, #10b981 100%);
 }
 
 .vu-ai-container {
@@ -20,14 +49,31 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
-    background: var(--fa-bg);
-    border-radius: 24px;
+    background: var(--fa-bg-gradient);
+    /* Use dynamic gradient */
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 32px;
     overflow: hidden;
     font-family: 'Outfit', sans-serif;
     border: 1px solid var(--fa-border);
     box-shadow: var(--fa-shadow);
     position: relative;
     z-index: 10;
+    color: var(--fa-text-main);
+    transition: all 0.5s ease;
+    /* Smooth transition between themes */
+}
+
+/* 🌌 GRID OVERLAY */
+.vu-ai-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(var(--fa-border) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 0.3;
+    pointer-events: none;
 }
 
 /* HEADER */
@@ -60,6 +106,9 @@
     font-weight: 850;
     color: var(--fa-text-main);
     letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .vu-version-tag {
@@ -73,14 +122,36 @@
     text-transform: uppercase;
 }
 
+.system-pulse-small {
+    display: flex;
+    gap: 12px;
+    font-size: 0.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: var(--fa-accent);
+    margin-top: 4px;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.system-pulse-small .pulse-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .vu-status {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--fa-accent);
-    font-weight: 700;
-    margin-top: 4px;
+    font-weight: 800;
+    margin-top: 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .vu-status-dot {
@@ -88,24 +159,21 @@
     height: 8px;
     background: var(--fa-accent);
     border-radius: 50%;
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 10px var(--fa-accent);
     animation: status-pulse 2s infinite;
 }
 
 @keyframes status-pulse {
-    0% {
-        transform: scale(1);
+
+    0%,
+    100% {
         opacity: 1;
+        transform: scale(1);
     }
 
     50% {
+        opacity: 0.5;
         transform: scale(1.2);
-        opacity: 0.7;
-    }
-
-    100% {
-        transform: scale(1);
-        opacity: 1;
     }
 }
 
@@ -116,16 +184,16 @@
     padding: 2rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    background: #ffffff;
-    background-image:
-        radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.02) 0, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(79, 70, 229, 0.02) 0, transparent 50%);
+    gap: 2rem;
+    z-index: 5;
+    scroll-behavior: smooth;
 }
 
 .vu-msg-wrapper {
     max-width: 85%;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .vu-msg-wrapper.bot {
@@ -140,35 +208,153 @@
     padding: 1.25rem 1.5rem;
     font-size: 0.95rem;
     line-height: 1.7;
-    border-radius: 18px;
-    box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+    border-radius: 20px;
+    position: relative;
+    transition: all 0.3s ease;
 }
 
 .vu-bubble.bot {
-    background: #f8fafc;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
     color: var(--fa-text-main);
-    border: 1px solid var(--fa-border);
+    border: 1px solid rgba(255, 255, 255, 0.5);
     border-top-left-radius: 4px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
 }
 
 .vu-bubble.user {
-    background: var(--fa-primary);
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: white;
     border-top-right-radius: 4px;
     font-weight: 500;
-    box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+}
+
+.bot-meta-tags {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.role-admin .bot-meta-tags {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.source-badge {
+    font-size: 0.6rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--fa-text-sub);
+}
+
+.role-admin .source-badge {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--fa-accent);
+}
+
+.copy-btn {
+    background: transparent;
+    border: none;
+    color: var(--fa-text-sub);
+    cursor: pointer;
+    opacity: 0.5;
+    transition: 0.2s;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+    color: var(--fa-primary);
 }
 
 .vu-timestamp {
     font-size: 0.65rem;
-    font-weight: 700;
+    font-weight: 800;
     color: var(--fa-text-sub);
-    margin-top: 6px;
-    opacity: 0.8;
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .vu-msg-wrapper.user .vu-timestamp {
     text-align: right;
+}
+
+/* 🧠 THINKING SCANNER */
+.vu-typing {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 1rem 0;
+    color: var(--fa-primary);
+    font-weight: 800;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.thinking-scanner {
+    width: 40px;
+    height: 4px;
+    background: rgba(79, 70, 229, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.scan-line {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: var(--fa-primary);
+    box-shadow: 0 0 10px var(--fa-primary);
+    animation: scanner-move 1.5s infinite linear;
+}
+
+@keyframes scanner-move {
+    0% {
+        left: -100%;
+    }
+
+    100% {
+        left: 100%;
+    }
+}
+
+/* 🌌 ROLE THEMES OVERRIDES */
+.vu-ai-container.role-admin {
+    --fa-bg: #020617;
+    --fa-surface: #0f172a;
+    --fa-text-main: #f1f5f9;
+    --fa-border: rgba(99, 102, 241, 0.3);
+    --fa-primary: #6366f1;
+    background: rgba(15, 23, 42, 0.85);
+}
+
+.role-admin .vu-header {
+    background: rgba(15, 23, 42, 0.9);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.role-admin .vu-bubble.bot {
+    background: #0f172a;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.role-admin .vu-input-area {
+    background: #020617;
+    border-top: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 /* INPUT AREA */
@@ -176,20 +362,20 @@
     padding: 1.5rem 2rem;
     background: white;
     border-top: 1px solid var(--fa-border);
+    z-index: 20;
 }
 
-.vu-input-wrapper {
-    background: #f8fafc;
+.vuai-input-wrapper {
+    background: var(--fa-surface);
     border-radius: 16px;
     padding: 8px;
     display: flex;
     gap: 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--fa-border);
     transition: all 0.3s ease;
 }
 
-.vu-input-wrapper:focus-within {
-    background: white;
+.vuai-input-wrapper:focus-within {
     border-color: var(--fa-primary);
     box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
 }
@@ -215,158 +401,111 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: 0.3s;
     border: none;
 }
 
-.vu-send-btn:hover:not(:disabled) {
-    background: var(--fa-secondary);
-    transform: translateY(-2px);
+.vu-refresh-btn {
+    background: rgba(79, 70, 229, 0.05);
+    border: 1px solid rgba(79, 70, 229, 0.1);
+    color: var(--fa-primary);
+    padding: 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+}
+
+.vu-refresh-btn:hover {
+    background: var(--fa-primary);
+    color: white;
+    transform: rotate(180deg);
     box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
-.vu-suggestions {
-    padding: 0 2rem 1rem;
-    gap: 10px;
+.vu-refresh-btn.refreshing {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.sentinel-suggestions {
     display: flex;
+    gap: 12px;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
     flex-wrap: wrap;
 }
 
 .suggestion-chip {
     padding: 8px 16px;
-    border-radius: 100px;
+    border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 700;
-    background: white;
-    color: var(--fa-text-sub);
-    border: 1px solid #e2e8f0;
+    background: var(--fa-surface);
+    border: 1px solid var(--fa-border);
+    color: var(--fa-text-main);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
 }
 
 .suggestion-chip:hover {
-    background: rgba(79, 70, 229, 0.05);
-    color: var(--fa-primary);
+    background: var(--fa-primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px -5px rgba(79, 70, 229, 0.4);
     border-color: var(--fa-primary);
 }
 
-/* TYPING INDICATOR */
-.vu-typing {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 1rem;
-    color: var(--fa-text-sub);
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 20px;
-}
-
-.neural-pulse-loader {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--fa-primary);
-    position: relative;
-    animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-}
-
-.neural-pulse-loader::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: var(--fa-secondary);
-    animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-    animation-delay: 0.5s;
-}
-
-@keyframes pulse-ring {
-    0% {
-        transform: scale(0.5);
-        opacity: 1;
-    }
-
-    100% {
-        transform: scale(2);
-        opacity: 0;
-    }
-}
-
-/* VIDEO ANALYSIS STYLES */
-.vu-analysis-overlay {
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.05) 0%, rgba(99, 102, 241, 0.02) 100%);
-    border: 1px solid rgba(79, 70, 229, 0.15);
-    border-radius: 20px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    position: relative;
-    overflow: hidden;
-}
-
-.vu-analysis-overlay::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 200%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-    animation: analysis-sweep 3s infinite;
-}
-
-@keyframes analysis-sweep {
-    0% {
-        left: -100%;
-    }
-
-    100% {
-        left: 100%;
-    }
-}
-
-.analysis-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 1rem;
-}
-
-.analysis-header span {
-    font-weight: 850;
-    font-size: 0.75rem;
+/* RAG Styling */
+.vu-bubble h3 {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--fa-primary);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--fa-primary);
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(79, 70, 229, 0.05);
+    border-radius: 8px;
+    width: fit-content;
 }
 
-.analysis-tag {
-    background: var(--fa-primary);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.65rem;
-    font-weight: 900;
+.role-admin .vu-bubble h3 {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
 }
 
-.analysis-content {
-    font-size: 0.9rem;
-    color: var(--fa-text-main);
-    line-height: 1.6;
-    font-weight: 500;
+.vu-bubble p {
+    margin-bottom: 0.75rem;
 }
 
-.analysis-link {
-    margin-top: 1rem;
-    font-size: 0.8rem;
-    color: var(--fa-primary);
-    font-weight: 700;
-    display: inline-block;
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+.vu-bubble code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
 }
 
-.analysis-link:hover {
-    border-bottom-color: var(--fa-primary);
+.role-admin .vu-bubble code {
+    background: rgba(255, 255, 255, 0.1);
+    color: #60a5fa;
 }

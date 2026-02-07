@@ -126,3 +126,159 @@
 .animate-toast-in {
     animation: slideInRight 0.4s ease-out forwards;
 }
+
+/* ==========================================================================
+   SENTINEL TRANSMISSION OVERLAY (HIGH-FIDELITY)
+   ========================================================================== */
+.sentinel-transmission-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    overflow: hidden;
+}
+
+.transmission-scanner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.05) 50%, transparent 100%);
+    background-size: 100% 200%;
+    animation: scanner-loop 6s infinite linear;
+    pointer-events: none;
+}
+
+@keyframes scanner-loop {
+    0% {
+        background-position: 0% 0%;
+    }
+
+    100% {
+        background-position: 0% 200%;
+    }
+}
+
+.transmission-content {
+    position: relative;
+    max-width: 600px;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(99, 102, 241, 0.2);
+    border-radius: 2px;
+    /* Brutalist/Tech edge */
+    padding: 3rem;
+    text-align: center;
+    color: white;
+    font-family: 'Outfit', sans-serif;
+}
+
+/* Priority Variations */
+.sentinel-transmission-overlay.type-emergency .transmission-content {
+    border-color: #ef4444;
+    box-shadow: 0 0 50px rgba(239, 68, 68, 0.2);
+}
+
+.transmission-glitch-header {
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    margin-bottom: 1.5rem;
+    position: relative;
+    color: #6366f1;
+    text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+
+.type-emergency .transmission-glitch-header {
+    color: #ef4444;
+}
+
+.transmission-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+    margin-bottom: 2.5rem;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #6366f1;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #6366f1;
+    animation: transmission-dot-pulse 1s infinite;
+}
+
+.type-emergency .pulse-dot {
+    background: #ef4444;
+    box-shadow: 0 0 10px #ef4444;
+}
+
+@keyframes transmission-dot-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.5);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.transmission-body {
+    font-size: 1.25rem;
+    line-height: 1.6;
+    margin-bottom: 3rem;
+    font-weight: 500;
+    color: #e2e8f0;
+}
+
+.transmission-footer {
+    display: flex;
+    justify-content: center;
+}
+
+.acknowledge-btn {
+    background: transparent;
+    border: 1px solid #6366f1;
+    color: #6366f1;
+    padding: 1rem 3rem;
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.acknowledge-btn:hover {
+    background: #6366f1;
+    color: white;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+.type-emergency .acknowledge-btn {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.type-emergency .acknowledge-btn:hover {
+    background: #ef4444;
+    color: white;
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaHeadset, FaTicketAlt, FaHistory, FaQuestionCircle, FaPaperPlane } from 'react-icons/fa';
+import ProfessionalEmptyState from './ProfessionalEmptyState';
 import './StudentSupport.css';
 
 /**
@@ -115,10 +116,13 @@ const StudentSupport = ({ userData }) => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                     >
-                        <div className="empty-state">
-                            <FaHistory size={48} color="#cbd5e1" />
-                            <h4>No Active Tickets</h4>
-                            <p>You haven't raised any support tickets in the current academic session.</p>
+                        <div style={{ marginTop: '2rem' }}>
+                            <ProfessionalEmptyState
+                                title="NO ACTIVE TICKETS"
+                                description="You haven't raised any support tickets in the current academic session. All clear on your end!"
+                                icon={<FaHistory />}
+                                theme="all-clear"
+                            />
                         </div>
                     </motion.div>
                 )}

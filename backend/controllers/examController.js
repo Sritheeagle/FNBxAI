@@ -7,8 +7,8 @@ exports.getExams = async (req, res) => {
     try {
         const { year, section, branch, facultyId } = req.query;
         let query = {};
-        if (year) query.year = year;
-        if (section) query.section = section;
+        if (year) query.year = String(year).replace(/[^0-9]/g, '');
+        if (section) query.section = String(section).replace(/Section\s*/i, '').trim().toUpperCase();
         if (branch) query.branch = branch;
         if (facultyId) query.facultyId = facultyId;
 
@@ -75,14 +75,28 @@ exports.deleteExam = async (req, res) => {
 
 exports.getStudentExams = async (req, res) => {
     try {
-        const { year, section, branch } = req.query;
+        let { year, section, branch } = req.query;
+        const sYear = String(year || '').replace(/[^0-9]/g, '');
+        const sSec = String(section || '').replace(/Section\s*/i, '').trim().toUpperCase();
+
         const query = {
-            year: year,
-            branch: branch,
+            year: sYear,
             status: 'published'
         };
-        if (section) {
-            query.$or = [{ section: section }, { section: "" }, { section: { $exists: false } }];
+
+        if (branch) {
+            query.branch = { $regex: new RegExp(`(^|[\\s,])(${branch}|All)($|[\\s,])`, 'i') };
+        }
+
+        if (sSec) {
+            // Match section explicitly or as part of a comma-separated list (e.g. "A, B")
+            // matches "A", "A,B", "B, A", "C, A, D", "All"
+            query.$or = [
+                { section: { $regex: /^all$/i } },
+                { section: { $regex: new RegExp(`(^|[\\s,])(${sSec})($|[\\s,])`, 'i') } },
+                { section: "" },
+                { section: { $exists: false } }
+            ];
         }
 
         const exams = await Exam.find(query).sort({ createdAt: -1 });
@@ -128,6 +142,12 @@ exports.submitExam = async (req, res) => {
 
         // Broadcast for analytics
         sse.broadcast('exams', { action: 'submit', data: result });
+        sse.broadcast('exam-monitor', {
+            type: 'submit',
+            examId,
+            studentId,
+            timestamp: new Date()
+        });
 
         res.json({
             score,
@@ -158,6 +178,29 @@ exports.getExamAnalytics = async (req, res) => {
             .sort({ submittedAt: -1 });
         res.json(results);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// SENTINEL MONITOR: Handle live proctoring events
+exports.monitorExam = async (req, res) => {
+    try {
+        const { event, examId, studentId, details } = req.body;
+        // event: 'start', 'flag', 'submit' (submit handled by submitExam but can duplicate here for logs)
+
+        // Broadcast to specific resource 'exam-monitor'
+        // Faculty dashboard listens to this
+        sse.broadcast('exam-monitor', {
+            type: event, // 'start', 'flag'
+            examId,
+            studentId,
+            details,
+            timestamp: new Date()
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Monitor Error:", err);
         res.status(500).json({ error: err.message });
     }
 };
